@@ -1,19 +1,28 @@
 import { ReactNode } from 'react';
 import { CategorySidebar } from '@/components/category/CategorySidebar';
-import { AppliedSidebar } from '@/components/applied/AppliedSidebar';
+import { StatusFilter } from '@/components/sidebar/StatusFilter';
 import { Button } from '@/components/ui/button';
 import { Menu, Briefcase, LayoutDashboard } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { JobStatus } from '@/types/job';
 
 interface MainLayoutProps {
   children: ReactNode;
   selectedCategoryId: string | null;
   onSelectCategory: (categoryId: string | null) => void;
+  selectedStatus: JobStatus | null;
+  onSelectStatus: (status: JobStatus | null) => void;
 }
 
-export function MainLayout({ children, selectedCategoryId, onSelectCategory }: MainLayoutProps) {
+export function MainLayout({ 
+  children, 
+  selectedCategoryId, 
+  onSelectCategory,
+  selectedStatus,
+  onSelectStatus
+}: MainLayoutProps) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
@@ -37,7 +46,12 @@ export function MainLayout({ children, selectedCategoryId, onSelectCategory }: M
                       selectedCategoryId={selectedCategoryId}
                       onSelectCategory={onSelectCategory}
                     />
-                    <AppliedSidebar />
+                    <div className="border-t">
+                      <StatusFilter
+                        selectedStatus={selectedStatus}
+                        onSelectStatus={onSelectStatus}
+                      />
+                    </div>
                   </div>
                 </SheetContent>
               </Sheet>
@@ -75,7 +89,10 @@ export function MainLayout({ children, selectedCategoryId, onSelectCategory }: M
               />
             </div>
             <div className="border-t">
-              <AppliedSidebar />
+              <StatusFilter
+                selectedStatus={selectedStatus}
+                onSelectStatus={onSelectStatus}
+              />
             </div>
           </aside>
         )}

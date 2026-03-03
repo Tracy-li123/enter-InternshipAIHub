@@ -1,26 +1,46 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { JobList } from '@/components/job/JobList';
-import { useJobs } from '@/hooks/use-jobs';
+import { useJobs, useAppliedJobs } from '@/hooks/use-jobs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { JobStatus } from '@/types/job';
+import { statusLabelMap } from '@/lib/status-colors';
 
 export default function Home() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<JobStatus | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // 获取岗位列表，排除已投递的岗位
-  const { data: jobs, isLoading, refetch } = useJobs(
+  // 获取所有岗位和已投递岗位
+  const { data: allJobs, isLoading: allJobsLoading, refetch } = useJobs(
     selectedCategoryId || undefined,
-    ['applied', 'written_test', 'first_interview', 'second_interview', 'final_interview', 'offer', 'rejected']
+    []
   );
+  const { data: appliedJobs, isLoading: appliedJobsLoading } = useAppliedJobs();
+
+  // 根据状态选择显示哪些岗位
+  const displayJobs = selectedStatus
+    ? appliedJobs
+        ?.filter(item => item.status === selectedStatus)
+        .map(item => ({
+          ...item.job,
+          status: item.status,
+          user_status_id: item.id,
+        }))
+    : allJobs?.filter(job => 
+        !['applied', 'written_test', 'first_interview', 'second_interview', 
+          'final_interview', 'offer', 'rejected'].includes(job.status as JobStatus)
+      );
+
+  const isLoading = selectedStatus ? appliedJobsLoading : allJobsLoading;
 
   // 根据搜索关键词过滤岗位
-  const filteredJobs = jobs?.filter(job => {
+  const filteredJobs = displayJobs?.filter(job => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -55,6 +75,8 @@ export default function Home() {
     <MainLayout 
       selectedCategoryId={selectedCategoryId}
       onSelectCategory={setSelectedCategoryId}
+      selectedStatus={selectedStatus}
+      onSelectStatus={setSelectedStatus}
     >
       <div className="h-full flex flex-col">
         {/* 搜索栏 */}
@@ -88,7 +110,11 @@ export default function Home() {
           <div className="p-4">
             <div className="mb-4">
               <h2 className="text-xl font-semibold">
-                {selectedCategoryId ? '分类岗位' : '全部岗位'}
+                {selectedStatus 
+                  ? `${statusLabelMap[selectedStatus]}岗位` 
+                  : selectedCategoryId 
+                    ? '分类岗位' 
+                    : '全部岗位'}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
                 {filteredJobs ? `共 ${filteredJobs.length} 个岗位` : '加载中...'}
