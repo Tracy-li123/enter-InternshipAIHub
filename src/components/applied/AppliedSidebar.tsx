@@ -9,37 +9,36 @@ export function AppliedSidebar() {
 
   if (isLoading) {
     return (
-      <div className="p-4 space-y-3">
-        <Skeleton className="h-6 w-32" />
-        {[1, 2, 3].map(i => (
-          <Skeleton key={i} className="h-24 w-full" />
+      <div className="p-3 space-y-2">
+        <Skeleton className="h-5 w-24" />
+        {[1, 2].map(i => (
+          <Skeleton key={i} className="h-20 w-full" />
         ))}
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="p-4 border-b">
-        <h2 className="font-semibold flex items-center gap-2">
-          <ClipboardList className="h-5 w-5 text-primary" />
-          已投递岗位
+    <div className="flex flex-col max-h-[300px]">
+      <div className="p-3 border-b">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <ClipboardList className="h-4 w-4 text-primary" />
+          已投递
           {appliedJobs && appliedJobs.length > 0 && (
-            <span className="text-sm text-muted-foreground">({appliedJobs.length})</span>
+            <span className="text-xs text-muted-foreground">({appliedJobs.length})</span>
           )}
-        </h2>
+        </h3>
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-4 space-y-3">
+        <div className="p-3 space-y-2">
           {!appliedJobs || appliedJobs.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              <p>还没有投递任何岗位</p>
-              <p className="mt-1">快去职位大厅看看吧～</p>
+            <div className="text-center py-4 text-muted-foreground text-xs">
+              <p>还没有投递岗位</p>
             </div>
           ) : (
-            appliedJobs.map(item => (
-              <AppliedJobItem key={item.id} item={item} />
+            appliedJobs.slice(0, 5).map(item => (
+              <AppliedJobItem key={item.id} item={item} compact />
             ))
           )}
         </div>

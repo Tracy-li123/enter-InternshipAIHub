@@ -3,21 +3,24 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useJob } from '@/hooks/use-jobs';
 import { useAIInterview } from '@/hooks/use-ai-interview';
 import { InterviewMessage } from '@/components/interview/InterviewMessage';
+import { StudyMode } from '@/components/interview/StudyMode';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Send, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Send, AlertCircle, BookOpen, MessageSquare } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Interview() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   const { data: job, isLoading: jobLoading } = useJob(jobId!);
   const [inputValue, setInputValue] = useState('');
-  const [hasStarted, setHasStarted] = useState(false);
+  const [currentMode, setCurrentMode] = useState<'study' | 'mock'>('study');
+  const [hasStartedMock, setHasStartedMock] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { 
@@ -49,8 +52,9 @@ export default function Interview() {
     }
   };
 
-  const handleStart = () => {
-    setHasStarted(true);
+  const handleStartMock = () => {
+    setCurrentMode('mock');
+    setHasStartedMock(true);
     startInterview();
   };
 
@@ -106,45 +110,29 @@ export default function Interview() {
             </div>
             <p className="text-sm text-muted-foreground">{job.company}</p>
           </div>
+
+          {/* Mode Switcher */}
+          <Tabs value={currentMode} onValueChange={(v) => setCurrentMode(v as 'study' | 'mock')}>
+            <TabsList>
+              <TabsTrigger value="study" className="gap-2">
+                <BookOpen className="h-4 w-4" />
+                学习模式
+              </TabsTrigger>
+              <TabsTrigger value="mock" className="gap-2" disabled={!hasStartedMock && currentMode !== 'mock'}>
+                <MessageSquare className="h-4 w-4" />
+                模拟面试
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
       </header>
 
-      {/* Chat Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <ScrollArea className="flex-1" ref={scrollRef}>
-          {!hasStarted ? (
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-              <div className="max-w-md space-y-6">
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-bold">AI 模拟面试</h2>
-                  <p className="text-muted-foreground">
-                    准备好开始面试了吗？AI面试官将根据岗位要求提出针对性的问题，并给予专业反馈。
-                  </p>
-                </div>
-
-                {job.description && (
-                  <Card>
-                    <CardHeader>
-                      <h3 className="font-semibold text-sm">岗位要求</h3>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-xs text-muted-foreground line-clamp-6 whitespace-pre-wrap">
-                        {job.description}
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-
-                <Button 
-                  size="lg" 
-                  onClick={handleStart}
-                  className="w-full"
-                >
-                  开始面试
-                </Button>
-              </div>
-            </div>
-          ) : (
+      {/* Content Area */}
+      {currentMode === 'study' ? (
+        <StudyMode job={job} onStartMockInterview={handleStartMock} />
+      ) : (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <ScrollArea className="flex-1" ref={scrollRef}>
             <div className="min-h-full">
               {messages.length === 0 && !aiLoading ? (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -156,11 +144,9 @@ export default function Interview() {
                 ))
               )}
             </div>
-          )}
-        </ScrollArea>
+          </ScrollArea>
 
-        {/* Input Area */}
-        {hasStarted && (
+          {/* Input Area */}
           <div className="border-t bg-card p-4">
             {error && (
               <Alert variant="destructive" className="mb-3">
@@ -192,8 +178,8 @@ export default function Interview() {
               💡 提示：回答时可以使用STAR法则（情境、任务、行动、结果）来组织你的答案
             </p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

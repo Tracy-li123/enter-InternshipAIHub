@@ -2,9 +2,10 @@ import { ReactNode } from 'react';
 import { CategorySidebar } from '@/components/category/CategorySidebar';
 import { AppliedSidebar } from '@/components/applied/AppliedSidebar';
 import { Button } from '@/components/ui/button';
-import { Menu, Briefcase } from 'lucide-react';
+import { Menu, Briefcase, LayoutDashboard } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -14,6 +15,8 @@ interface MainLayoutProps {
 
 export function MainLayout({ children, selectedCategoryId, onSelectCategory }: MainLayoutProps) {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -29,30 +32,51 @@ export function MainLayout({ children, selectedCategoryId, onSelectCategory }: M
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="p-0 w-64">
-                  <CategorySidebar 
-                    selectedCategoryId={selectedCategoryId}
-                    onSelectCategory={onSelectCategory}
-                  />
+                  <div className="flex flex-col h-full">
+                    <CategorySidebar 
+                      selectedCategoryId={selectedCategoryId}
+                      onSelectCategory={onSelectCategory}
+                    />
+                    <AppliedSidebar />
+                  </div>
                 </SheetContent>
               </Sheet>
             )}
-            <div className="flex items-center gap-2">
+            <button 
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2 cursor-pointer"
+            >
               <Briefcase className="h-6 w-6 text-primary" />
               <h1 className="text-xl font-bold">职达实习生</h1>
-            </div>
+            </button>
           </div>
+          
+          <Button
+            variant={location.pathname === '/dashboard' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => navigate('/dashboard')}
+            className="gap-2"
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            数据看板
+          </Button>
         </div>
       </header>
 
       {/* 主内容区 */}
       <div className="flex-1 flex overflow-hidden">
-        {/* 左侧分类侧边栏（桌面端） */}
+        {/* 左侧边栏（桌面端）：分类 + 已投递 */}
         {!isMobile && (
-          <aside className="w-56 border-r bg-card overflow-y-auto">
-            <CategorySidebar 
-              selectedCategoryId={selectedCategoryId}
-              onSelectCategory={onSelectCategory}
-            />
+          <aside className="w-64 border-r bg-card flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto">
+              <CategorySidebar 
+                selectedCategoryId={selectedCategoryId}
+                onSelectCategory={onSelectCategory}
+              />
+            </div>
+            <div className="border-t">
+              <AppliedSidebar />
+            </div>
           </aside>
         )}
 
@@ -60,30 +84,7 @@ export function MainLayout({ children, selectedCategoryId, onSelectCategory }: M
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>
-
-        {/* 右侧投递侧边栏（桌面端） */}
-        {!isMobile && (
-          <aside className="w-80 border-l bg-card overflow-y-auto">
-            <AppliedSidebar />
-          </aside>
-        )}
       </div>
-
-      {/* 移动端底部导航栏 */}
-      {isMobile && (
-        <div className="border-t bg-card">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" className="w-full py-6">
-                查看已投递岗位
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-[80vh]">
-              <AppliedSidebar />
-            </SheetContent>
-          </Sheet>
-        </div>
-      )}
     </div>
   );
 }

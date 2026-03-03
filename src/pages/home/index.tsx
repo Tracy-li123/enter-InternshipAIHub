@@ -3,14 +3,18 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { JobList } from '@/components/job/JobList';
 import { useJobs } from '@/hooks/use-jobs';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Search, RefreshCw } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export default function Home() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // 获取岗位列表，排除已投递的岗位
-  const { data: jobs, isLoading } = useJobs(
+  const { data: jobs, isLoading, refetch } = useJobs(
     selectedCategoryId || undefined,
     ['applied', 'written_test', 'first_interview', 'second_interview', 'final_interview', 'offer', 'rejected']
   );
@@ -26,6 +30,27 @@ export default function Home() {
     );
   });
 
+  const handleRefreshJobs = async () => {
+    setIsRefreshing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('job-scraper-62325baf28c7');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast.success(`成功更新岗位！新增 ${data.stats.inserted} 个岗位`);
+        refetch();
+      } else {
+        toast.error('更新失败，请稍后重试');
+      }
+    } catch (error) {
+      console.error('Refresh error:', error);
+      toast.error('更新失败，请稍后重试');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <MainLayout 
       selectedCategoryId={selectedCategoryId}
@@ -34,15 +59,26 @@ export default function Home() {
       <div className="h-full flex flex-col">
         {/* 搜索栏 */}
         <div className="border-b bg-card">
-          <div className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="搜索岗位、公司或地点..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
+          <div className="p-4 space-y-3">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="搜索岗位、公司或地点..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Button 
+                variant="outline"
+                onClick={handleRefreshJobs}
+                disabled={isRefreshing}
+                className="gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? '更新中...' : '更新岗位'}
+              </Button>
             </div>
           </div>
         </div>
