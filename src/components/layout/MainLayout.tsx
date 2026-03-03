@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode } from 'react';
 import { CategorySidebar } from '@/components/category/CategorySidebar';
 import { AppliedSidebar } from '@/components/applied/AppliedSidebar';
 import { Button } from '@/components/ui/button';
@@ -8,10 +8,11 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 interface MainLayoutProps {
   children: ReactNode;
+  selectedCategoryId: string | null;
+  onSelectCategory: (categoryId: string | null) => void;
 }
 
-export function MainLayout({ children }: MainLayoutProps) {
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+export function MainLayout({ children, selectedCategoryId, onSelectCategory }: MainLayoutProps) {
   const isMobile = useIsMobile();
 
   return (
@@ -30,7 +31,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                 <SheetContent side="left" className="p-0 w-64">
                   <CategorySidebar 
                     selectedCategoryId={selectedCategoryId}
-                    onSelectCategory={setSelectedCategoryId}
+                    onSelectCategory={onSelectCategory}
                   />
                 </SheetContent>
               </Sheet>
@@ -50,7 +51,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           <aside className="w-56 border-r bg-card overflow-y-auto">
             <CategorySidebar 
               selectedCategoryId={selectedCategoryId}
-              onSelectCategory={setSelectedCategoryId}
+              onSelectCategory={onSelectCategory}
             />
           </aside>
         )}

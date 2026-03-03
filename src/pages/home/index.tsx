@@ -9,7 +9,7 @@ export default function Home() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 获取岗位列表，排除已投递和收藏的岗位
+  // 获取岗位列表，排除已投递的岗位
   const { data: jobs, isLoading } = useJobs(
     selectedCategoryId || undefined,
     ['applied', 'written_test', 'first_interview', 'second_interview', 'final_interview', 'offer', 'rejected']
@@ -27,7 +27,10 @@ export default function Home() {
   });
 
   return (
-    <MainLayout>
+    <MainLayout 
+      selectedCategoryId={selectedCategoryId}
+      onSelectCategory={setSelectedCategoryId}
+    >
       <div className="h-full flex flex-col">
         {/* 搜索栏 */}
         <div className="border-b bg-card">

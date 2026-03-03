@@ -26,12 +26,16 @@ export function useJobs(categoryId?: string, excludeStatuses: JobStatus[] = []) 
       if (error) throw error;
 
       // 转换数据格式
-      const jobs = (data as any[]).map(job => ({
-        ...job,
-        status: job.user_status?.[0]?.status || 'pending',
-        user_status_id: job.user_status?.[0]?.id,
-        status_updated_at: job.user_status?.[0]?.updated_at,
-      })) as JobWithStatus[];
+      const jobs = (data as unknown[]).map((job: unknown) => {
+        const jobData = job as Record<string, unknown>;
+        const userStatus = jobData.user_status as Array<Record<string, unknown>> | undefined;
+        return {
+          ...jobData,
+          status: userStatus?.[0]?.status || 'pending',
+          user_status_id: userStatus?.[0]?.id,
+          status_updated_at: userStatus?.[0]?.updated_at,
+        };
+      }) as JobWithStatus[];
 
       // 过滤掉指定状态的岗位
       if (excludeStatuses.length > 0) {
@@ -62,11 +66,13 @@ export function useJob(jobId: string) {
 
       if (error) throw error;
 
+      const jobData = data as Record<string, unknown>;
+      const userStatus = jobData.user_status as Array<Record<string, unknown>> | undefined;
       return {
-        ...data,
-        status: (data as any).user_status?.[0]?.status || 'pending',
-        user_status_id: (data as any).user_status?.[0]?.id,
-        status_updated_at: (data as any).user_status?.[0]?.updated_at,
+        ...jobData,
+        status: userStatus?.[0]?.status || 'pending',
+        user_status_id: userStatus?.[0]?.id,
+        status_updated_at: userStatus?.[0]?.updated_at,
       } as JobWithStatus;
     },
   });
