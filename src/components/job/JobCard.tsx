@@ -43,7 +43,7 @@ export function JobCard({ job }: JobCardProps) {
   };
 
   const handleStartInterview = () => {
-    navigate(`/interview/${job.id}`);
+    navigate(`/job/${job.id}`); // 改为跳转到详情页
   };
 
   const handleViewDetails = () => {
@@ -52,8 +52,15 @@ export function JobCard({ job }: JobCardProps) {
     }
   };
 
+  const handleCardClick = () => {
+    navigate(`/job/${job.id}`); // 点击卡片跳转到详情页
+  };
+
   return (
-    <Card className="hover:shadow-lg transition-all duration-200 border-border/50">
+    <Card 
+      className="hover:shadow-lg transition-all duration-200 border-border/50 cursor-pointer"
+      onClick={handleCardClick}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
@@ -70,7 +77,10 @@ export function JobCard({ job }: JobCardProps) {
           <Button
             variant="ghost"
             size="icon"
-            onClick={handleBookmark}
+            onClick={(e) => {
+              e.stopPropagation(); // 阻止冒泡到卡片点击
+              handleBookmark();
+            }}
             className={cn(isBookmarked && 'text-yellow-500')}
           >
             <Bookmark className={cn('h-5 w-5', isBookmarked && 'fill-current')} />
@@ -99,19 +109,24 @@ export function JobCard({ job }: JobCardProps) {
 
       <CardFooter className="flex items-center gap-2 pt-3 border-t">
         <Button
-          variant="outline"
+          variant="default"
           size="sm"
-          onClick={handleStartInterview}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleCardClick();
+          }}
           className="flex-1"
         >
-          <MessageSquare className="h-4 w-4 mr-1" />
-          AI模拟
+          查看详情
         </Button>
         {!isApplied ? (
           <Button
-            variant="default"
+            variant="outline"
             size="sm"
-            onClick={handleApply}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleApply();
+            }}
             className="flex-1"
           >
             <Check className="h-4 w-4 mr-1" />
@@ -126,7 +141,10 @@ export function JobCard({ job }: JobCardProps) {
           <Button
             variant="ghost"
             size="icon"
-            onClick={handleViewDetails}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewDetails();
+            }}
           >
             <ExternalLink className="h-4 w-4" />
           </Button>

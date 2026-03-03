@@ -13,6 +13,7 @@ import { statusLabelMap } from '@/lib/status-colors';
 export default function Home() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<JobStatus | null>(null);
+  const [showBookmarked, setShowBookmarked] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -23,8 +24,38 @@ export default function Home() {
   );
   const { data: appliedJobs, isLoading: appliedJobsLoading } = useAppliedJobs();
 
-  // 根据状态选择显示哪些岗位
-  const displayJobs = selectedStatus
+  // 统计收藏数量
+  const bookmarkedCount = appliedJobs?.filter(item => item.status === 'bookmarked').length || 0;
+
+  // 互斥选择逻辑
+  const handleCategorySelect = (categoryId: string | null) => {
+    setSelectedCategoryId(categoryId);
+    setSelectedStatus(null);
+    setShowBookmarked(false);
+  };
+
+  const handleStatusSelect = (status: JobStatus | null) => {
+    setSelectedStatus(status);
+    setSelectedCategoryId(null);
+    setShowBookmarked(false);
+  };
+
+  const handleShowBookmarked = () => {
+    setShowBookmarked(!showBookmarked);
+    setSelectedCategoryId(null);
+    setSelectedStatus(null);
+  };
+
+  // 根据筛选条件选择显示哪些岗位
+  const displayJobs = showBookmarked
+    ? appliedJobs
+        ?.filter(item => item.status === 'bookmarked')
+        .map(item => ({
+          ...item.job,
+          status: item.status,
+          user_status_id: item.id,
+        }))
+    : selectedStatus
     ? appliedJobs
         ?.filter(item => item.status === selectedStatus)
         .map(item => ({
@@ -34,10 +65,10 @@ export default function Home() {
         }))
     : allJobs?.filter(job => 
         !['applied', 'written_test', 'first_interview', 'second_interview', 
-          'final_interview', 'offer', 'rejected'].includes(job.status as JobStatus)
+          'final_interview', 'offer', 'rejected', 'bookmarked'].includes(job.status as JobStatus)
       );
 
-  const isLoading = selectedStatus ? appliedJobsLoading : allJobsLoading;
+  const isLoading = selectedStatus || showBookmarked ? appliedJobsLoading : allJobsLoading;
 
   // 根据搜索关键词过滤岗位
   const filteredJobs = displayJobs?.filter(job => {
@@ -74,9 +105,12 @@ export default function Home() {
   return (
     <MainLayout 
       selectedCategoryId={selectedCategoryId}
-      onSelectCategory={setSelectedCategoryId}
+      onSelectCategory={handleCategorySelect}
       selectedStatus={selectedStatus}
-      onSelectStatus={setSelectedStatus}
+      onSelectStatus={handleStatusSelect}
+      bookmarkedCount={bookmarkedCount}
+      onShowBookmarked={handleShowBookmarked}
+      showBookmarked={showBookmarked}
     >
       <div className="h-full flex flex-col">
         {/* 搜索栏 */}
@@ -110,11 +144,13 @@ export default function Home() {
           <div className="p-4">
             <div className="mb-4">
               <h2 className="text-xl font-semibold">
-                {selectedStatus 
-                  ? `${statusLabelMap[selectedStatus]}岗位` 
-                  : selectedCategoryId 
-                    ? '分类岗位' 
-                    : '全部岗位'}
+                {showBookmarked
+                  ? '收藏岗位'
+                  : selectedStatus 
+                    ? `${statusLabelMap[selectedStatus]}岗位` 
+                    : selectedCategoryId 
+                      ? '分类岗位' 
+                      : '全部岗位'}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
                 {filteredJobs ? `共 ${filteredJobs.length} 个岗位` : '加载中...'}

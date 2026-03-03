@@ -1,6 +1,5 @@
 import { ReactNode } from 'react';
-import { CategorySidebar } from '@/components/category/CategorySidebar';
-import { StatusFilter } from '@/components/sidebar/StatusFilter';
+import { CollapsibleSidebar } from '@/components/sidebar/CollapsibleSidebar';
 import { Button } from '@/components/ui/button';
 import { Menu, Briefcase, LayoutDashboard } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -14,6 +13,9 @@ interface MainLayoutProps {
   onSelectCategory: (categoryId: string | null) => void;
   selectedStatus: JobStatus | null;
   onSelectStatus: (status: JobStatus | null) => void;
+  bookmarkedCount: number;
+  onShowBookmarked: () => void;
+  showBookmarked: boolean;
 }
 
 export function MainLayout({ 
@@ -21,7 +23,10 @@ export function MainLayout({
   selectedCategoryId, 
   onSelectCategory,
   selectedStatus,
-  onSelectStatus
+  onSelectStatus,
+  bookmarkedCount,
+  onShowBookmarked,
+  showBookmarked,
 }: MainLayoutProps) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -41,18 +46,15 @@ export function MainLayout({
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="p-0 w-64">
-                  <div className="flex flex-col h-full">
-                    <CategorySidebar 
-                      selectedCategoryId={selectedCategoryId}
-                      onSelectCategory={onSelectCategory}
-                    />
-                    <div className="border-t">
-                      <StatusFilter
-                        selectedStatus={selectedStatus}
-                        onSelectStatus={onSelectStatus}
-                      />
-                    </div>
-                  </div>
+                  <CollapsibleSidebar
+                    selectedCategoryId={selectedCategoryId}
+                    onSelectCategory={onSelectCategory}
+                    selectedStatus={selectedStatus}
+                    onSelectStatus={onSelectStatus}
+                    bookmarkedCount={bookmarkedCount}
+                    onShowBookmarked={onShowBookmarked}
+                    showBookmarked={showBookmarked}
+                  />
                 </SheetContent>
               </Sheet>
             )}
@@ -81,19 +83,16 @@ export function MainLayout({
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧边栏（桌面端）：分类 + 已投递 */}
         {!isMobile && (
-          <aside className="w-64 border-r bg-card flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto">
-              <CategorySidebar 
-                selectedCategoryId={selectedCategoryId}
-                onSelectCategory={onSelectCategory}
-              />
-            </div>
-            <div className="border-t">
-              <StatusFilter
-                selectedStatus={selectedStatus}
-                onSelectStatus={onSelectStatus}
-              />
-            </div>
+          <aside className="w-64 border-r bg-card overflow-y-auto">
+            <CollapsibleSidebar
+              selectedCategoryId={selectedCategoryId}
+              onSelectCategory={onSelectCategory}
+              selectedStatus={selectedStatus}
+              onSelectStatus={onSelectStatus}
+              bookmarkedCount={bookmarkedCount}
+              onShowBookmarked={onShowBookmarked}
+              showBookmarked={showBookmarked}
+            />
           </aside>
         )}
 

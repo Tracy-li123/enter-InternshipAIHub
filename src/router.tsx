@@ -2,12 +2,18 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Interview from "./pages/interview/[jobId]";
 import Dashboard from "./pages/dashboard";
+import JobDetail from "./pages/job/[jobId]";
 
 export const routers = [
     {
       path: "/",
       name: 'home',
       element: <Index />,
+    },
+    {
+      path: "/job/:jobId",
+      name: 'jobDetail',
+      element: <JobDetail />,
     },
     {
       path: "/interview/:jobId",
