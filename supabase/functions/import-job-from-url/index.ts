@@ -24,6 +24,18 @@ serve(async (req) => {
 
     console.log("开始抓取链接:", url);
 
+    // 检测是否为BOSS直聘
+    if (url.includes('zhipin.com')) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "BOSS直聘使用了动态加载技术，暂时无法自动抓取。\n\n请手动填写岗位信息，或者尝试其他招聘网站的链接。\n\n建议使用：拉勾网、智联招聘、前程无忧等网站。",
+          needManualInput: true,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // 抓取网页内容
     const response = await fetch(url, {
       headers: {
@@ -43,7 +55,14 @@ serve(async (req) => {
     const jobInfo = parseJobInfo(url, html);
 
     if (!jobInfo.title || !jobInfo.company) {
-      throw new Error("未能识别岗位信息，请确保链接正确");
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "未能识别岗位信息，该网站可能使用了动态加载。\n\n请尝试手动添加岗位，或使用其他招聘网站的链接。",
+          needManualInput: true,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // 保存到数据库
@@ -117,46 +136,58 @@ function parseJobInfo(url: string, html: string): any {
   const jobInfo: any = {
     sourceUrl: url,
   };
-
-  // BOSS直聘
-  if (url.includes('zhipin.com')) {
-    jobInfo.title = extractText(html, /<div class="job-title[^"]*">([^<]+)<\/div>/) ||
-                    extractText(html, /<h1[^>]*class="[^"]*name[^"]*"[^>]*>([^<]+)<\/h1>/);
-    jobInfo.company = extractText(html, /<h3 class="[^"]*company-name[^"]*">([^<]+)<\/h3>/) ||
-                      extractText(html, /<div class="[^"]*sider-company[^"]*">.*?<a[^>]*>([^<]+)<\/a>/s);
-    jobInfo.location = extractText(html, /<span class="[^"]*location-address[^"]*">([^<]+)<\/span>/);
-    jobInfo.salary = extractText(html, /<span class="[^"]*salary[^"]*">([^<]+)<\/span>/);
-    jobInfo.description = extractText(html, /<div class="job-sec-text">([^]+?)<\/div>/);
-    jobInfo.source = 'BOSS直聘';
-  }
   
   // 拉勾网
-  else if (url.includes('lagou.com')) {
-    jobInfo.title = extractText(html, /<h1[^>]*class="[^"]*job-name[^"]*"[^>]*>([^<]+)<\/h1>/);
-    jobInfo.company = extractText(html, /<div class="[^"]*company[^"]*">([^<]+)<\/div>/);
-    jobInfo.location = extractText(html, /<span class="[^"]*work_addr[^"]*">([^<]+)<\/span>/);
+  if (url.includes('lagou.com')) {
+    jobInfo.title = extractText(html, /<h1[^>]*class="[^"]*job-name[^"]*"[^>]*>([^<]+)<\/h1>/) ||
+                    extractText(html, /<span class="name">([^<]+)<\/span>/);
+    jobInfo.company = extractText(html, /<div class="[^"]*company[^"]*">([^<]+)<\/div>/) ||
+                      extractText(html, /<em class="fl-cn">([^<]+)<\/em>/);
+    jobInfo.location = extractText(html, /<span class="[^"]*work_addr[^"]*">([^<]+)<\/span>/) ||
+                       extractText(html, /<em class="address">([^<]+)<\/em>/);
     jobInfo.salary = extractText(html, /<span class="[^"]*salary[^"]*">([^<]+)<\/span>/);
-    jobInfo.description = extractText(html, /<div class="[^"]*job-detail[^"]*">([^]+?)<\/div>/);
+    jobInfo.description = extractText(html, /<div class="[^"]*job-detail[^"]*">([^]+?)<\/div>/) ||
+                          extractText(html, /<dd class="job_bt">([^]+?)<\/dd>/s);
     jobInfo.source = '拉勾网';
   }
   
   // 智联招聘
   else if (url.includes('zhaopin.com')) {
-    jobInfo.title = extractText(html, /<h1[^>]*>([^<]+)<\/h1>/) ||
-                    extractText(html, /"jobName":"([^"]+)"/);
-    jobInfo.company = extractText(html, /"companyName":"([^"]+)"/);
-    jobInfo.location = extractText(html, /"cityName":"([^"]+)"/);
-    jobInfo.salary = extractText(html, /"salary":"([^"]+)"/);
-    jobInfo.description = extractText(html, /"jobDescription":"([^"]+)"/);
+    // 尝试从JSON数据中提取
+    const jsonMatch = html.match(/"jobName":"([^"]+)"/);
+    if (jsonMatch) {
+      jobInfo.title = jsonMatch[1];
+      jobInfo.company = extractText(html, /"companyName":"([^"]+)"/);
+      jobInfo.location = extractText(html, /"cityName":"([^"]+)"/);
+      jobInfo.salary = extractText(html, /"salary":"([^"]+)"/);
+      jobInfo.description = extractText(html, /"jobDescription":"([^"]+)"/);
+    } else {
+      jobInfo.title = extractText(html, /<h1[^>]*>([^<]+)<\/h1>/);
+      jobInfo.company = extractText(html, /<a[^>]*company-name[^>]*>([^<]+)<\/a>/);
+      jobInfo.location = extractText(html, /<span[^>]*location[^>]*>([^<]+)<\/span>/);
+    }
     jobInfo.source = '智联招聘';
+  }
+  
+  // 前程无忧
+  else if (url.includes('51job.com')) {
+    jobInfo.title = extractText(html, /<h1[^>]*class="[^"]*cn[^"]*"[^>]*>([^<]+)<\/h1>/);
+    jobInfo.company = extractText(html, /<p class="cname">.*?<a[^>]*>([^<]+)<\/a>/s);
+    jobInfo.location = extractText(html, /<span class="lname">([^<]+)<\/span>/);
+    jobInfo.salary = extractText(html, /<span class="lname">([^<]+)<\/span>/);
+    jobInfo.description = extractText(html, /<div class="bmsg job_msg inbox">([^]+?)<\/div>/s);
+    jobInfo.source = '前程无忧';
   }
   
   // 字节跳动
   else if (url.includes('bytedance.com') || url.includes('jobs.toutiao.com')) {
-    jobInfo.title = extractText(html, /<h1[^>]*>([^<]+)<\/h1>/);
+    jobInfo.title = extractText(html, /<h1[^>]*>([^<]+)<\/h1>/) ||
+                    extractText(html, /"title":"([^"]+)"/);
     jobInfo.company = '字节跳动';
-    jobInfo.location = extractText(html, /<span[^>]*class="[^"]*location[^"]*"[^>]*>([^<]+)<\/span>/);
-    jobInfo.description = extractText(html, /<div[^>]*class="[^"]*description[^"]*"[^>]*>([^]+?)<\/div>/s);
+    jobInfo.location = extractText(html, /<span[^>]*class="[^"]*location[^"]*"[^>]*>([^<]+)<\/span>/) ||
+                       extractText(html, /"location":"([^"]+)"/);
+    jobInfo.description = extractText(html, /<div[^>]*class="[^"]*description[^"]*"[^>]*>([^]+?)<\/div>/s) ||
+                          extractText(html, /"description":"([^"]+)"/);
     jobInfo.source = '字节跳动官网';
   }
 
@@ -170,6 +201,8 @@ function parseJobInfo(url: string, html: string): any {
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&amp;/g, '&')
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '')
         .replace(/\s+/g, ' ')
         .trim();
     }

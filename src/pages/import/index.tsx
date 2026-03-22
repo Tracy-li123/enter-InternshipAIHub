@@ -3,16 +3,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Link2, Loader2, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Link2, Loader2, CheckCircle2, AlertCircle, ArrowLeft, PenSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function ImportPage() {
   const navigate = useNavigate();
+  
+  // 链接导入
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string; job?: { title: string; company: string; location?: string } } | null>(null);
+  
+  // 手动添加
+  const [manualJob, setManualJob] = useState({
+    title: '',
+    company: '',
+    location: '',
+    description: '',
+    sourceUrl: '',
+  });
+  const [manualLoading, setManualLoading] = useState(false);
 
   const handleImport = async () => {
     if (!url.trim()) {
@@ -63,6 +76,57 @@ export default function ImportPage() {
     }
   };
 
+  const handleManualAdd = async () => {
+    if (!manualJob.title || !manualJob.company) {
+      toast.error('请至少填写岗位名称和公司名称');
+      return;
+    }
+
+    setManualLoading(true);
+
+    try {
+      // 智能匹配分类
+      const { data: categories } = await supabase.from('job_categories').select('*');
+      
+      let categoryId = null;
+      if (categories) {
+        const titleLower = manualJob.title.toLowerCase();
+        if (titleLower.includes('产品') && !titleLower.includes('运营')) {
+          categoryId = categories.find(c => c.name.includes('产品经理'))?.id;
+        } else if (titleLower.includes('运营')) {
+          categoryId = categories.find(c => c.name.includes('运营'))?.id;
+        } else if (titleLower.includes('数据')) {
+          categoryId = categories.find(c => c.name.includes('数据'))?.id;
+        } else if (titleLower.includes('分析') || titleLower.includes('商业')) {
+          categoryId = categories.find(c => c.name.includes('商业'))?.id;
+        }
+        if (!categoryId) categoryId = categories[0]?.id;
+      }
+
+      // 插入岗位
+      const { error } = await supabase.from('jobs').insert({
+        title: manualJob.title,
+        company: manualJob.company,
+        location: manualJob.location || '未知',
+        description: manualJob.description || '',
+        source_url: manualJob.sourceUrl || `https://manual-add-${Date.now()}`,
+        category_id: categoryId,
+        published_at: new Date().toISOString(),
+        scraped_at: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+
+      toast.success('岗位添加成功！');
+      setTimeout(() => navigate('/'), 2000);
+    } catch (error) {
+      console.error('添加失败:', error);
+      toast.error('添加失败，请重试');
+    } finally {
+      setManualLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
       {/* 顶部导航 */}
@@ -85,111 +149,229 @@ export default function ImportPage() {
           <p className="text-gray-600">复制招聘网站的岗位链接，自动抓取并保存</p>
         </div>
 
-        {/* 导入表单 */}
-        <Card className="mb-6 border-2 border-purple-200 shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Link2 className="h-5 w-5 text-purple-600" />
-              岗位链接
-            </CardTitle>
-            <CardDescription>
-              从BOSS直聘、拉勾网等招聘网站复制岗位详情页链接
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">岗位链接 *</label>
-              <Input
-                type="url"
-                placeholder="例如：https://www.zhipin.com/job_detail/xxx.html"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                disabled={loading}
-                className="text-base"
-              />
-            </div>
+        {/* 导入表单 - 使用Tabs */}
+        <Tabs defaultValue="url" className="mb-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="url" className="gap-2">
+              <Link2 className="h-4 w-4" />
+              链接导入
+            </TabsTrigger>
+            <TabsTrigger value="manual" className="gap-2">
+              <PenSquare className="h-4 w-4" />
+              手动添加
+            </TabsTrigger>
+          </TabsList>
 
-            <Button
-              onClick={handleImport}
-              disabled={loading || !url.trim()}
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-              size="lg"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  正在抓取岗位信息...
-                </>
-              ) : (
-                <>
-                  <Link2 className="h-5 w-5 mr-2" />
-                  导入岗位
-                </>
-              )}
-            </Button>
+          {/* 链接导入 */}
+          <TabsContent value="url">
+            <Card className="border-2 border-purple-200 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Link2 className="h-5 w-5 text-purple-600" />
+                  岗位链接
+                </CardTitle>
+                <CardDescription>
+                  从拉勾网、智联招聘等招聘网站复制岗位详情页链接
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">岗位链接 *</label>
+                  <Input
+                    type="url"
+                    placeholder="例如：https://www.lagou.com/jobs/xxx.html"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    disabled={loading}
+                    className="text-base"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ⚠️ BOSS直聘暂不支持自动抓取，请使用手动添加
+                  </p>
+                </div>
 
-            {/* 结果显示 */}
-            {result && (
-              <div
-                className={`p-4 rounded-lg ${
-                  result.success
-                    ? 'bg-green-50 border border-green-200'
-                    : 'bg-red-50 border border-red-200'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  {result.success ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <Button
+                  onClick={handleImport}
+                  disabled={loading || !url.trim()}
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  size="lg"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      正在抓取岗位信息...
+                    </>
                   ) : (
-                    <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <>
+                      <Link2 className="h-5 w-5 mr-2" />
+                      导入岗位
+                    </>
                   )}
-                  <div className="flex-1">
-                    <p
-                      className={`font-medium ${
-                        result.success ? 'text-green-900' : 'text-red-900'
-                      }`}
-                    >
-                      {result.message}
-                    </p>
-                    {result.success && result.job && (
-                      <div className="mt-2 text-sm text-green-800">
-                        <p>岗位：{result.job.title}</p>
-                        <p>公司：{result.job.company}</p>
-                        <p className="text-xs text-green-600 mt-2">3秒后自动跳转到首页...</p>
+                </Button>
+
+                {/* 结果显示 */}
+                {result && (
+                  <div
+                    className={`p-4 rounded-lg ${
+                      result.success
+                        ? 'bg-green-50 border border-green-200'
+                        : 'bg-red-50 border border-red-200'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      {result.success ? (
+                        <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex-1">
+                        <p
+                          className={`font-medium whitespace-pre-wrap ${
+                            result.success ? 'text-green-900' : 'text-red-900'
+                          }`}
+                        >
+                          {result.message}
+                        </p>
+                        {result.success && result.job && (
+                          <div className="mt-2 text-sm text-green-800">
+                            <p>岗位：{result.job.title}</p>
+                            <p>公司：{result.job.company}</p>
+                            <p className="text-xs text-green-600 mt-2">3秒后自动跳转到首页...</p>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 手动添加 */}
+          <TabsContent value="manual">
+            <Card className="border-2 border-blue-200 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PenSquare className="h-5 w-5 text-blue-600" />
+                  手动添加岗位
+                </CardTitle>
+                <CardDescription>
+                  适用于BOSS直聘等无法自动抓取的网站
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">岗位名称 *</label>
+                    <Input
+                      placeholder="例如：产品经理实习生"
+                      value={manualJob.title}
+                      onChange={(e) => setManualJob({ ...manualJob, title: e.target.value })}
+                      disabled={manualLoading}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">公司名称 *</label>
+                    <Input
+                      placeholder="例如：字节跳动"
+                      value={manualJob.company}
+                      onChange={(e) => setManualJob({ ...manualJob, company: e.target.value })}
+                      disabled={manualLoading}
+                    />
                   </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">工作地点</label>
+                    <Input
+                      placeholder="例如：北京"
+                      value={manualJob.location}
+                      onChange={(e) => setManualJob({ ...manualJob, location: e.target.value })}
+                      disabled={manualLoading}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">岗位链接</label>
+                    <Input
+                      type="url"
+                      placeholder="原网站链接（选填）"
+                      value={manualJob.sourceUrl}
+                      onChange={(e) => setManualJob({ ...manualJob, sourceUrl: e.target.value })}
+                      disabled={manualLoading}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">岗位描述</label>
+                  <Textarea
+                    placeholder="岗位职责、任职要求等信息（选填）"
+                    value={manualJob.description}
+                    onChange={(e) => setManualJob({ ...manualJob, description: e.target.value })}
+                    disabled={manualLoading}
+                    rows={6}
+                  />
+                </div>
+
+                <Button
+                  onClick={handleManualAdd}
+                  disabled={manualLoading || !manualJob.title || !manualJob.company}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  size="lg"
+                >
+                  {manualLoading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      正在添加...
+                    </>
+                  ) : (
+                    <>
+                      <PenSquare className="h-5 w-5 mr-2" />
+                      添加岗位
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
         {/* 支持的网站 */}
         <Card>
           <CardHeader>
             <CardTitle>✅ 支持的招聘网站</CardTitle>
-            <CardDescription>以下网站的岗位链接可以直接导入</CardDescription>
+            <CardDescription>以下网站的岗位链接可以直接导入（链接导入）</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {[
-                { name: 'BOSS直聘', domain: 'zhipin.com' },
-                { name: '拉勾网', domain: 'lagou.com' },
-                { name: '智联招聘', domain: 'zhaopin.com' },
-                { name: '前程无忧', domain: '51job.com' },
-                { name: '字节跳动', domain: 'bytedance.com' },
-                { name: '腾讯招聘', domain: 'tencent.com' },
-              ].map((site) => (
+                { name: '拉勾网', domain: 'lagou.com', supported: true },
+                { name: '智联招聘', domain: 'zhaopin.com', supported: true },
+                { name: '前程无忧', domain: '51job.com', supported: true },
+                { name: '字节跳动', domain: 'bytedance.com', supported: true },
+                { name: 'BOSS直聘', domain: 'zhipin.com', supported: false },
+                { name: '(请手动添加)', domain: '', supported: false },
+              ].map((site, index) => (
                 <div
-                  key={site.domain}
-                  className="flex flex-col gap-1 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  key={index}
+                  className={`flex flex-col gap-1 p-3 rounded-lg transition-colors ${
+                    site.supported 
+                      ? 'bg-green-50 hover:bg-green-100' 
+                      : 'bg-gray-50 hover:bg-gray-100'
+                  }`}
                 >
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    {site.supported ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    )}
                     <span className="font-medium text-sm">{site.name}</span>
                   </div>
-                  <span className="text-xs text-gray-500 ml-6">{site.domain}</span>
+                  {site.domain && (
+                    <span className="text-xs text-gray-500 ml-6">{site.domain}</span>
+                  )}
                 </div>
               ))}
             </div>
