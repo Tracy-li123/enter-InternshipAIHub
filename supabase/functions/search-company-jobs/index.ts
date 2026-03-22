@@ -26,8 +26,11 @@ serve(async (req) => {
     // 获取 Tavily API Key
     const TAVILY_API_KEY = Deno.env.get("TAVILY_API_KEY");
     if (!TAVILY_API_KEY) {
+      console.error("❌ Tavily API Key未配置");
       throw new Error("Tavily API Key未配置");
     }
+
+    console.log("✅ Tavily API Key已找到");
 
     // 步骤1: 使用Tavily API搜索
     const searchQuery = `${company} ${jobType} 招聘 site:jobs.${company.toLowerCase()}.com OR site:zhaopin.com OR site:lagou.com OR site:51job.com`;
