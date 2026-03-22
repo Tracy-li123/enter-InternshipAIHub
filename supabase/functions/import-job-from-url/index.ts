@@ -22,14 +22,16 @@ serve(async (req) => {
       );
     }
 
-    console.log("========== 开始抓取 ==========");
-    console.log("URL:", url);
+    console.log("开始抓取:", url);
 
-    if (url.includes('zhipin.com')) {
+    // 检测动态加载网站
+    if (url.includes('zhipin.com') || url.includes('bytedance.com') || url.includes('tencent.com')) {
+      const siteName = url.includes('zhipin.com') ? 'BOSS直聘' : 
+                      url.includes('bytedance.com') ? '字节跳动' : '腾讯招聘';
       return new Response(
         JSON.stringify({
           success: false,
-          error: "BOSS直聘使用了动态加载技术，暂时无法自动抓取。请使用手动添加功能。",
+          error: `${siteName}使用了JavaScript动态加载技术，无法自动抓取。\n\n请切换到"手动添加"标签，复制页面信息手动录入。`,
           needManualInput: true,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -48,24 +50,13 @@ serve(async (req) => {
     }
 
     const html = await response.text();
-    console.log("HTML长度:", html.length);
-    console.log("HTML前500字符:", html.substring(0, 500));
-    
     const jobInfo = parseJobInfo(url, html);
-    
-    console.log("========== 解析结果 ==========");
-    console.log("Title:", jobInfo.title);
-    console.log("Company:", jobInfo.company);
-    console.log("Location:", jobInfo.location);
-    console.log("Description长度:", jobInfo.description?.length || 0);
-    console.log("Description前100字:", jobInfo.description?.substring(0, 100));
 
     if (!jobInfo.title || !jobInfo.company) {
-      console.log("解析失败：缺少必要信息");
       return new Response(
         JSON.stringify({
           success: false,
-          error: "未能识别岗位信息，请使用手动添加功能。",
+          error: "未能识别岗位信息，该网站可能使用了动态加载。\n\n请尝试手动添加岗位。",
           needManualInput: true,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -112,13 +103,7 @@ serve(async (req) => {
       .select()
       .single();
 
-    if (error) {
-      console.error("插入失败:", error);
-      throw error;
-    }
-
-    console.log("========== 成功插入 ==========");
-    console.log("Job ID:", newJob.id);
+    if (error) throw error;
 
     return new Response(
       JSON.stringify({
@@ -130,12 +115,11 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error("========== 错误 ==========");
-    console.error("Error:", error);
+    console.error("导入失败:", error);
     return new Response(
       JSON.stringify({
         success: false,
-        error: "导入失败，请重试",
+        error: "导入失败，请重试或使用手动添加功能",
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -145,82 +129,59 @@ serve(async (req) => {
 function parseJobInfo(url: string, html: string) {
   const jobInfo: any = { sourceUrl: url };
   
-  console.log("========== 开始解析 ==========");
-  console.log("检测网站:", url.includes('bytedance.com') ? "字节跳动" : "其他");
-  
-  if (url.includes('bytedance.com')) {
-    // 1. 尝试从title提取
-    console.log("尝试提取title...");
-    const titleMatch = html.match(/<title>([^<]+?)\s*[-–|]\s*字节跳动/i);
-    if (titleMatch) {
-      jobInfo.title = titleMatch[1].trim();
-      console.log("从title提取到:", jobInfo.title);
-    } else {
-      console.log("title提取失败");
-      // 备用方案
-      const simpleTitleMatch = html.match(/<title>([^<]+)<\/title>/i);
-      if (simpleTitleMatch) {
-        const fullTitle = simpleTitleMatch[1];
-        console.log("完整title:", fullTitle);
-        jobInfo.title = fullTitle.split(/[-–|]/)[0].trim();
-        console.log("提取后的title:", jobInfo.title);
-      }
-    }
-    
-    // 2. 尝试从JSON提取
-    console.log("尝试提取JSON数据...");
-    const jsonMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*(\{[\s\S]+?\});/);
-    if (jsonMatch) {
-      console.log("找到JSON数据，长度:", jsonMatch[1].length);
-      try {
-        const data = JSON.parse(jsonMatch[1]);
-        console.log("JSON解析成功");
-        console.log("JSON keys:", Object.keys(data).join(', '));
-        
-        if (data.jobDetail) {
-          console.log("找到jobDetail");
-          console.log("jobDetail keys:", Object.keys(data.jobDetail).join(', '));
-          
-          if (data.jobDetail.title) {
-            jobInfo.title = data.jobDetail.title;
-            console.log("从JSON更新title:", jobInfo.title);
-          }
-          if (data.jobDetail.cityName) {
-            jobInfo.location = data.jobDetail.cityName;
-            console.log("从JSON提取location:", jobInfo.location);
-          }
-          if (data.jobDetail.description) {
-            jobInfo.description = data.jobDetail.description;
-            console.log("从JSON提取description长度:", jobInfo.description.length);
-          }
-        } else {
-          console.log("JSON中没有jobDetail字段");
-        }
-      } catch (e) {
-        console.log("JSON解析失败:", e.message);
-      }
-    } else {
-      console.log("未找到JSON数据");
-    }
-    
-    jobInfo.company = '字节跳动';
+  // 拉勾网
+  if (url.includes('lagou.com')) {
+    jobInfo.title = extractText(html, /<h1[^>]*>([^<]+)<\/h1>/i);
+    jobInfo.company = extractText(html, /<em class="fl-cn">([^<]+)<\/em>/i);
+    jobInfo.location = extractText(html, /<em class="address">([^<]+)<\/em>/i);
+    jobInfo.description = extractText(html, /<dd class="job_bt">([^]+?)<\/dd>/is);
+    jobInfo.source = '拉勾网';
   }
   
+  // 智联招聘
+  else if (url.includes('zhaopin.com')) {
+    const jsonTitleMatch = html.match(/"jobName":"([^"]+)"/);
+    if (jsonTitleMatch) {
+      jobInfo.title = jsonTitleMatch[1];
+      jobInfo.company = extractText(html, /"companyName":"([^"]+)"/);
+      jobInfo.location = extractText(html, /"cityName":"([^"]+)"/);
+      jobInfo.description = extractText(html, /"jobDescription":"([^"]+)"/);
+    }
+    jobInfo.source = '智联招聘';
+  }
+  
+  // 前程无忧
+  else if (url.includes('51job.com')) {
+    jobInfo.title = extractText(html, /<h1[^>]*>([^<]+)<\/h1>/i);
+    jobInfo.company = extractText(html, /<p class="cname">.*?<a[^>]*>([^<]+)<\/a>/is);
+    jobInfo.location = extractText(html, /<span class="lname">([^<]+)<\/span>/i);
+    jobInfo.description = extractText(html, /<div class="bmsg job_msg inbox">([^]+?)<\/div>/is);
+    jobInfo.source = '前程无忧';
+  }
+
   // 清理HTML标签
-  console.log("清理HTML标签...");
   Object.keys(jobInfo).forEach(key => {
     if (typeof jobInfo[key] === 'string') {
-      const before = jobInfo[key].length;
       jobInfo[key] = jobInfo[key]
         .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
         .replace(/\s+/g, ' ')
         .trim();
-      const after = jobInfo[key].length;
-      console.log(`${key}: ${before} -> ${after} 字符`);
+        
+      if (key === 'description' && jobInfo[key].length > 5000) {
+        jobInfo[key] = jobInfo[key].substring(0, 5000) + '...';
+      }
     }
   });
 
   return jobInfo;
+}
+
+function extractText(html: string, regex: RegExp): string {
+  const match = html.match(regex);
+  return match ? match[1].trim() : '';
 }
 
 function matchCategory(title: string, categories: any[]) {

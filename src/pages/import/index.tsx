@@ -171,7 +171,8 @@ export default function ImportPage() {
                   岗位链接
                 </CardTitle>
                 <CardDescription>
-                  从拉勾网、智联招聘等招聘网站复制岗位详情页链接
+                  从拉勾网、智联招聘等招聘网站复制岗位详情页链接<br/>
+                  <span className="text-orange-600 font-medium">⚠️ 字节跳动、BOSS直聘等网站暂不支持自动抓取，请使用"手动添加"</span>
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -186,7 +187,7 @@ export default function ImportPage() {
                     className="text-base"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    ⚠️ BOSS直聘暂不支持自动抓取，请使用手动添加
+                    ⚠️ 字节跳动、BOSS直聘等使用动态加载，暂不支持链接导入，请切换到"手动添加"标签
                   </p>
                 </div>
 
@@ -256,7 +257,8 @@ export default function ImportPage() {
                   手动添加岗位
                 </CardTitle>
                 <CardDescription>
-                  适用于BOSS直聘等无法自动抓取的网站
+                  适用于字节跳动、BOSS直聘等无法自动抓取的网站<br/>
+                  <span className="text-blue-600 font-medium">💡 提示：可直接从招聘网站复制粘贴信息，快速录入</span>
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -349,9 +351,9 @@ export default function ImportPage() {
                 { name: '拉勾网', domain: 'lagou.com', supported: true },
                 { name: '智联招聘', domain: 'zhaopin.com', supported: true },
                 { name: '前程无忧', domain: '51job.com', supported: true },
-                { name: '字节跳动', domain: 'bytedance.com', supported: true },
-                { name: 'BOSS直聘', domain: 'zhipin.com', supported: false },
-                { name: '(请手动添加)', domain: '', supported: false },
+                { name: '字节跳动', domain: 'bytedance.com', supported: false, note: '请手动添加' },
+                { name: 'BOSS直聘', domain: 'zhipin.com', supported: false, note: '请手动添加' },
+                { name: '腾讯招聘', domain: 'tencent.com', supported: false, note: '请手动添加' },
               ].map((site, index) => (
                 <div
                   key={index}
@@ -365,12 +367,15 @@ export default function ImportPage() {
                     {site.supported ? (
                       <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
                     ) : (
-                      <AlertCircle className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <AlertCircle className="h-4 w-4 text-orange-500 flex-shrink-0" />
                     )}
                     <span className="font-medium text-sm">{site.name}</span>
                   </div>
                   {site.domain && (
                     <span className="text-xs text-gray-500 ml-6">{site.domain}</span>
+                  )}
+                  {site.note && (
+                    <span className="text-xs text-orange-600 ml-6">{site.note}</span>
                   )}
                 </div>
               ))}
