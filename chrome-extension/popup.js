@@ -86,26 +86,56 @@ async function extractJobInfo() {
       throw new Error('未能获取岗位信息，请确保在岗位详情页');
     }
     
-    // 发送到平台
+    // 发送到平台API
     const result = await chrome.storage.sync.get(['platformUrl']);
     const platformUrl = result.platformUrl || DEFAULT_PLATFORM_URL;
     
-    // 这里需要调用您平台的API
+    // 构建API地址 - 使用Supabase Edge Function
+    // 如果是localhost，使用本地Supabase；如果是生产环境，使用生产Supabase
+    const apiUrl = platformUrl.includes('localhost') 
+      ? 'http://127.0.0.1:54321/functions/v1/import-job-from-extension'
+      : `${platformUrl}/functions/v1/import-job-from-extension`;
+    
     console.log('采集到的岗位信息:', jobInfo);
-    console.log('将发送到:', platformUrl);
+    console.log('发送到API:', apiUrl);
     
-    // 模拟成功
-    successMsg.textContent = `✅ 成功采集《${jobInfo.title}》`;
-    successMsg.classList.add('active');
-    
-    // 保存到本地存储
-    const saved = await chrome.storage.local.get(['savedJobs']) || { savedJobs: [] };
-    saved.savedJobs = saved.savedJobs || [];
-    saved.savedJobs.push({
-      ...jobInfo,
-      savedAt: new Date().toISOString()
-    });
-    await chrome.storage.local.set(saved);
+    // 发送到后端API
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(jobInfo)
+      });
+      
+      const apiResult = await response.json();
+      
+      if (apiResult.success) {
+        if (apiResult.isDuplicate) {
+          successMsg.textContent = `ℹ️ 《${jobInfo.title}》已存在于平台`;
+        } else {
+          successMsg.textContent = `✅ 成功导入《${jobInfo.title}》到平台`;
+        }
+        successMsg.classList.add('active');
+      } else {
+        throw new Error(apiResult.error || '导入失败');
+      }
+    } catch (apiError) {
+      console.error('API调用失败:', apiError);
+      // API失败时，保存到本地存储作为备份
+      const saved = await chrome.storage.local.get(['savedJobs']) || { savedJobs: [] };
+      saved.savedJobs = saved.savedJobs || [];
+      saved.savedJobs.push({
+        ...jobInfo,
+        savedAt: new Date().toISOString()
+      });
+      await chrome.storage.local.set(saved);
+      
+      errorMsg.textContent = `⚠️ 已保存到本地，但同步失败: ${apiError.message}`;
+      errorMsg.classList.add('active');
+      return;
+    }
     
   } catch (error) {
     console.error('采集失败:', error);
