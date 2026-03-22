@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "职达实习生 - 岗位采集助手",
+  "version": "1.0.0",
+  "description": "一键采集招聘网站的实习岗位信息到职达实习生平台",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.zhipin.com/*",
+    "https://www.lagou.com/*",
+    "https://jobs.bytedance.com/*",
+    "https://careers.tencent.com/*",
+    "https://talent.alibaba.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.zhipin.com/job_detail/*",
+        "https://www.lagou.com/jobs/*",
+        "https://jobs.bytedance.com/*/position/*"
+      ],
+      "js": ["content.js"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
