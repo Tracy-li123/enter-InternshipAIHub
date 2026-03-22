@@ -171,8 +171,10 @@ export default function ImportPage() {
                   岗位链接
                 </CardTitle>
                 <CardDescription>
-                  ✨ 使用Kimi AI模型智能解析岗位信息，支持所有招聘网站<br/>
-                  <span className="text-primary font-medium">包括字节跳动、BOSS直聘、拉勾网、智联招聘等</span>
+                  ✨ 使用Jina Reader + Kimi AI智能解析岗位信息<br/>
+                  <span className="text-primary font-medium">支持字节跳动、拉勾网、智联招聘等网站</span>
+                  <br/>
+                  <span className="text-orange-600 text-xs">⚠️ BOSS直聘有严格反爬虫，请使用"手动添加"</span>
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -348,23 +350,32 @@ export default function ImportPage() {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {[
-                { name: '字节跳动', domain: 'bytedance.com' },
-                { name: 'BOSS直聘', domain: 'zhipin.com' },
-                { name: '拉勾网', domain: 'lagou.com' },
-                { name: '智联招聘', domain: 'zhaopin.com' },
-                { name: '腾讯招聘', domain: 'tencent.com' },
-                { name: '阿里招聘', domain: 'alibaba.com' },
+                { name: '字节跳动', domain: 'bytedance.com', supported: true },
+                { name: '拉勾网', domain: 'lagou.com', supported: true },
+                { name: '智联招聘', domain: 'zhaopin.com', supported: true },
+                { name: '腾讯招聘', domain: 'tencent.com', supported: true },
+                { name: '阿里招聘', domain: 'alibaba.com', supported: true },
+                { name: 'BOSS直聘', domain: 'zhipin.com', supported: false, note: '请手动添加' },
               ].map((site, index) => (
                 <div
                   key={index}
-                  className="flex flex-col gap-1 p-3 rounded-lg transition-colors bg-green-50 hover:bg-green-100"
+                  className={`flex flex-col gap-1 p-3 rounded-lg transition-colors ${
+                    site.supported ? 'bg-green-50 hover:bg-green-100' : 'bg-orange-50 hover:bg-orange-100'
+                  }`}
                 >
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    {site.supported ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 text-orange-600 flex-shrink-0" />
+                    )}
                     <span className="font-medium text-sm">{site.name}</span>
                   </div>
                   {site.domain && (
                     <span className="text-xs text-gray-500 ml-6">{site.domain}</span>
+                  )}
+                  {site.note && (
+                    <span className="text-xs text-orange-600 ml-6">{site.note}</span>
                   )}
                 </div>
               ))}

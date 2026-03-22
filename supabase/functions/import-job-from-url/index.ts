@@ -24,16 +24,20 @@ serve(async (req) => {
 
     console.log("🔍 开始处理:", url);
 
-    // 步骤1: 使用Jina AI Reader获取页面内容（支持JavaScript渲染）
+    // 步骤1: 使用Jina AI Reader获取页面内容
     console.log("📄 使用Jina AI Reader抓取内容...");
+    
     const jinaResponse = await fetch(`https://r.jina.ai/${url}`, {
       headers: {
         "Accept": "application/json",
         "X-Return-Format": "markdown",
+        "X-Timeout": "10",
       },
     });
 
     if (!jinaResponse.ok) {
+      const errorText = await jinaResponse.text();
+      console.error("❌ Jina返回错误:", jinaResponse.status, errorText.substring(0, 200));
       throw new Error("无法访问该网页");
     }
 
@@ -43,8 +47,27 @@ serve(async (req) => {
     console.log("✅ 获取内容成功，长度:", content.length);
     console.log("📝 内容预览:", content.substring(0, 500));
 
-    if (content.length < 100) {
-      throw new Error("网页内容为空");
+    // 检查是否是反爬虫页面
+    if (content.length < 100 || 
+        content.includes('正在加载') || 
+        content.includes('Please wait') ||
+        content.includes('验证码') ||
+        content.includes('Access Denied')) {
+      
+      // BOSS直聘特殊处理：提示用户手动添加
+      if (url.includes('zhipin.com')) {
+        console.log("⚠️ BOSS直聘反爬虫拦截");
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "BOSS直聘有严格的反爬虫机制，暂时无法自动导入。\n\n请切换到"手动添加"标签，复制岗位信息手动录入。",
+            needManualInput: true,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      throw new Error("网页内容为空或被拦截");
     }
 
     // 步骤2: 使用AI分析内容
@@ -114,10 +137,8 @@ ${content.substring(0, 30000)}
     // 解析JSON
     let jobInfo: any;
     try {
-      // 尝试直接解析
       jobInfo = JSON.parse(aiText);
     } catch (e) {
-      // 尝试提取JSON
       const jsonMatch = aiText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
