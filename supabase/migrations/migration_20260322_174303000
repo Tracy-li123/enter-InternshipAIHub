@@ -1,0 +1,9 @@
+
+-- 添加软删除字段
+ALTER TABLE jobs ADD COLUMN deleted_at timestamp with time zone;
+
+-- 添加索引以提高查询效率
+CREATE INDEX idx_jobs_deleted_at ON jobs(deleted_at);
+
+-- 添加注释
+COMMENT ON COLUMN jobs.deleted_at IS '软删除时间，NULL表示未删除';

@@ -16,6 +16,9 @@ interface MainLayoutProps {
   bookmarkedCount: number;
   onShowBookmarked: () => void;
   showBookmarked: boolean;
+  deletedCount: number;
+  onShowDeleted: () => void;
+  showDeleted: boolean;
 }
 
 export function MainLayout({ 
@@ -27,6 +30,9 @@ export function MainLayout({
   bookmarkedCount,
   onShowBookmarked,
   showBookmarked,
+  deletedCount,
+  onShowDeleted,
+  showDeleted,
 }: MainLayoutProps) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -54,6 +60,9 @@ export function MainLayout({
                     bookmarkedCount={bookmarkedCount}
                     onShowBookmarked={onShowBookmarked}
                     showBookmarked={showBookmarked}
+                    deletedCount={deletedCount}
+                    onShowDeleted={onShowDeleted}
+                    showDeleted={showDeleted}
                   />
                 </SheetContent>
               </Sheet>
@@ -92,6 +101,9 @@ export function MainLayout({
               bookmarkedCount={bookmarkedCount}
               onShowBookmarked={onShowBookmarked}
               showBookmarked={showBookmarked}
+              deletedCount={deletedCount}
+              onShowDeleted={onShowDeleted}
+              showDeleted={showDeleted}
             />
           </aside>
         )}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, FolderOpen, Bookmark, ListChecks } from 'lucide-react';
+import { ChevronDown, FolderOpen, Bookmark, ListChecks, Trash2 } from 'lucide-react';
 import { CategorySidebar } from '@/components/category/CategorySidebar';
 import { StatusFilter } from './StatusFilter';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,9 @@ interface CollapsibleSidebarProps {
   bookmarkedCount: number;
   onShowBookmarked: () => void;
   showBookmarked: boolean;
+  deletedCount: number;
+  onShowDeleted: () => void;
+  showDeleted: boolean;
 }
 
 export function CollapsibleSidebar({
@@ -26,6 +29,9 @@ export function CollapsibleSidebar({
   bookmarkedCount,
   onShowBookmarked,
   showBookmarked,
+  deletedCount,
+  onShowDeleted,
+  showDeleted,
 }: CollapsibleSidebarProps) {
   const [categoryOpen, setCategoryOpen] = useState(true);
   const [statusOpen, setStatusOpen] = useState(true);
@@ -46,6 +52,22 @@ export function CollapsibleSidebar({
           <span className="font-medium">收藏</span>
         </div>
         <Badge variant="outline">{bookmarkedCount}</Badge>
+      </Button>
+
+      {/* 已删除 */}
+      <Button
+        variant={showDeleted ? 'secondary' : 'ghost'}
+        className={cn(
+          'w-full justify-between h-auto py-2.5',
+          showDeleted && 'bg-destructive/10 border border-destructive/20'
+        )}
+        onClick={onShowDeleted}
+      >
+        <div className="flex items-center gap-2">
+          <Trash2 className="h-4 w-4" />
+          <span className="font-medium">已删除</span>
+        </div>
+        <Badge variant="outline">{deletedCount}</Badge>
       </Button>
 
       {/* 岗位分类 - 可折叠 */}

@@ -5,13 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, ExternalLink, Bookmark, Brain, BookmarkCheck } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Bookmark, Brain, BookmarkCheck, Trash2, RotateCcw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState, useEffect } from 'react';
 import { statusLabelMap } from '@/lib/status-colors';
 import { formatRelativeTime } from '@/lib/date-utils';
 import { toast } from 'sonner';
 import { JobStatus } from '@/types/job';
+import { useDeleteJob, useRestoreJob } from '@/hooks/use-jobs';
 
 export default function JobDetail() {
   const { jobId } = useParams();
@@ -104,6 +105,36 @@ export default function JobDetail() {
     updateStatusMutation.mutate(newStatus);
   };
 
+  // 删除和恢复功能
+  const deleteJobMutation = useDeleteJob();
+  const restoreJobMutation = useRestoreJob();
+
+  const handleDelete = async () => {
+    if (!confirm('确定要删除这个岗位吗？删除后可以在"已删除"栏目中恢复。')) {
+      return;
+    }
+
+    try {
+      await deleteJobMutation.mutateAsync(jobId!);
+      toast.success('岗位已删除');
+      navigate('/');
+    } catch (error) {
+      toast.error('删除失败，请重试');
+    }
+  };
+
+  const handleRestore = async () => {
+    try {
+      await restoreJobMutation.mutateAsync(jobId!);
+      toast.success('岗位已恢复');
+      navigate('/');
+    } catch (error) {
+      toast.error('恢复失败，请重试');
+    }
+  };
+
+  const isDeleted = !!job?.deleted_at;
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -155,44 +186,76 @@ export default function JobDetail() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* 已删除提示 */}
+            {isDeleted && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <p className="text-sm text-destructive font-medium">⚠️ 此岗位已被删除</p>
+              </div>
+            )}
+
             {/* 操作按钮 */}
             <div className="flex flex-wrap gap-3">
-              <Button 
-                variant="default" 
-                size="lg"
-                className="gap-2"
-                onClick={() => navigate(`/interview/${jobId}`)}
-              >
-                <Brain className="h-4 w-4" />
-                岗位认知 / AI模拟
-              </Button>
-              <Button 
-                variant={isBookmarked ? 'secondary' : 'outline'}
-                size="lg"
-                className="gap-2"
-                onClick={handleToggleBookmark}
-              >
-                {isBookmarked ? (
-                  <>
-                    <BookmarkCheck className="h-4 w-4" />
-                    已收藏
-                  </>
-                ) : (
-                  <>
-                    <Bookmark className="h-4 w-4" />
-                    收藏
-                  </>
-                )}
-              </Button>
-              <Button 
-                variant="outline" 
-                size="lg"
-                className="gap-2"
-                onClick={() => window.open(job.source_url, '_blank')}
-              >
-                <ExternalLink className="h-4 w-4" />
-                前往投递
-              </Button>
+              {isDeleted ? (
+                // 已删除状态：显示恢复按钮
+                <Button 
+                  variant="default" 
+                  size="lg"
+                  className="gap-2"
+                  onClick={handleRestore}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  恢复岗位
+                </Button>
+              ) : (
+                // 正常状态：显示所有操作按钮
+                <>
+                  <Button 
+                    variant="default" 
+                    size="lg"
+                    className="gap-2"
+                    onClick={() => navigate(`/interview/${jobId}`)}
+                  >
+                    <Brain className="h-4 w-4" />
+                    岗位认知 / AI模拟
+                  </Button>
+                  <Button 
+                    variant={isBookmarked ? 'secondary' : 'outline'}
+                    size="lg"
+                    className="gap-2"
+                    onClick={handleToggleBookmark}
+                  >
+                    {isBookmarked ? (
+                      <>
+                        <BookmarkCheck className="h-4 w-4" />
+                        已收藏
+                      </>
+                    ) : (
+                      <>
+                        <Bookmark className="h-4 w-4" />
+                        收藏
+                      </>
+                    )}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="lg"
+                    className="gap-2"
+                    onClick={() => window.open(job.source_url, '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    前往投递
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    size="lg"
+                    className="gap-2"
+                    onClick={handleDelete}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    删除
+                  </Button>
+                </>
+              )}
             </div>
 
             <Separator />

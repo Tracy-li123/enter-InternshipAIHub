@@ -16,6 +16,7 @@ export function useJobs(categoryId?: string, excludeStatuses: JobStatus[] = []) 
           category:job_categories(*),
           user_status:user_job_status(id, status, updated_at)
         `)
+        .is('deleted_at', null)  // 只获取未删除的岗位
         .order('published_at', { ascending: false });
 
       if (categoryId) {
@@ -102,6 +103,88 @@ export function useAppliedJobs() {
 }
 
 /**
+ * 获取已删除的岗位列表
+ */
+export function useDeletedJobs() {
+  return useQuery({
+    queryKey: ['deleted-jobs'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select(`
+          *,
+          category:job_categories(*),
+          user_status:user_job_status(id, status, updated_at)
+        `)
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', { ascending: false });
+
+      if (error) throw error;
+
+      // 转换数据格式
+      const jobs = (data as unknown[]).map((job: unknown) => {
+        const jobData = job as Record<string, unknown>;
+        const userStatus = jobData.user_status as Array<Record<string, unknown>> | undefined;
+        return {
+          ...jobData,
+          status: userStatus?.[0]?.status || 'pending',
+          user_status_id: userStatus?.[0]?.id,
+          status_updated_at: userStatus?.[0]?.updated_at,
+        };
+      }) as JobWithStatus[];
+
+      return jobs;
+    },
+  });
+}
+
+/**
+ * 软删除岗位
+ */
+export function useDeleteJob() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (jobId: string) => {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', jobId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['deleted-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['job'] });
+    },
+  });
+}
+
+/**
+ * 恢复已删除的岗位
+ */
+export function useRestoreJob() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (jobId: string) => {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ deleted_at: null })
+        .eq('id', jobId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['deleted-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['job'] });
+    },
+  });
+}
+
+/**
  * 更新岗位状态
  */
 export function useUpdateJobStatus() {
@@ -131,3 +214,5 @@ export function useUpdateJobStatus() {
     },
   });
 }
+
+

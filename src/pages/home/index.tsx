@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { JobList } from '@/components/job/JobList';
-import { useJobs, useAppliedJobs } from '@/hooks/use-jobs';
+import { useJobs, useAppliedJobs, useDeletedJobs } from '@/hooks/use-jobs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, RefreshCw, Link2 } from 'lucide-react';
@@ -16,40 +16,55 @@ export default function Home() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<JobStatus | null>(null);
   const [showBookmarked, setShowBookmarked] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // 获取所有岗位和已投递岗位
+  // 获取所有岗位、已投递岗位、已删除岗位
   const { data: allJobs, isLoading: allJobsLoading, refetch } = useJobs(
     selectedCategoryId || undefined,
     []
   );
   const { data: appliedJobs, isLoading: appliedJobsLoading } = useAppliedJobs();
+  const { data: deletedJobs, isLoading: deletedJobsLoading } = useDeletedJobs();
 
-  // 统计收藏数量
+  // 统计收藏和删除数量
   const bookmarkedCount = appliedJobs?.filter(item => item.status === 'bookmarked').length || 0;
+  const deletedCount = deletedJobs?.length || 0;
 
   // 互斥选择逻辑
   const handleCategorySelect = (categoryId: string | null) => {
     setSelectedCategoryId(categoryId);
     setSelectedStatus(null);
     setShowBookmarked(false);
+    setShowDeleted(false);
   };
 
   const handleStatusSelect = (status: JobStatus | null) => {
     setSelectedStatus(status);
     setSelectedCategoryId(null);
     setShowBookmarked(false);
+    setShowDeleted(false);
   };
 
   const handleShowBookmarked = () => {
     setShowBookmarked(!showBookmarked);
     setSelectedCategoryId(null);
     setSelectedStatus(null);
+    setShowDeleted(false);
+  };
+
+  const handleShowDeleted = () => {
+    setShowDeleted(!showDeleted);
+    setSelectedCategoryId(null);
+    setSelectedStatus(null);
+    setShowBookmarked(false);
   };
 
   // 根据筛选条件选择显示哪些岗位
-  const displayJobs = showBookmarked
+  const displayJobs = showDeleted
+    ? deletedJobs
+    : showBookmarked
     ? appliedJobs
         ?.filter(item => item.status === 'bookmarked')
         .map(item => ({
@@ -70,7 +85,7 @@ export default function Home() {
           'final_interview', 'offer', 'rejected', 'bookmarked'].includes(job.status as JobStatus)
       );
 
-  const isLoading = selectedStatus || showBookmarked ? appliedJobsLoading : allJobsLoading;
+  const isLoading = showDeleted ? deletedJobsLoading : (selectedStatus || showBookmarked ? appliedJobsLoading : allJobsLoading);
 
   // 根据搜索关键词过滤岗位
   const filteredJobs = displayJobs?.filter(job => {
@@ -113,6 +128,9 @@ export default function Home() {
       bookmarkedCount={bookmarkedCount}
       onShowBookmarked={handleShowBookmarked}
       showBookmarked={showBookmarked}
+      deletedCount={deletedCount}
+      onShowDeleted={handleShowDeleted}
+      showDeleted={showDeleted}
     >
       <div className="h-full flex flex-col">
         {/* 搜索栏 */}
