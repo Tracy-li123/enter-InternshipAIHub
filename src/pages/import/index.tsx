@@ -1,57 +1,60 @@
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Link2, Loader2, CheckCircle2, AlertCircle, ArrowLeft, PenSquare, Search, Plus } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Link2, PenSquare, ArrowLeft, Loader2, AlertCircle, Search, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
+
+interface SearchResult {
+  title: string;
+  location?: string;
+  url: string;
+  description?: string;
+}
 
 export default function ImportPage() {
   const navigate = useNavigate();
   
   // 链接导入
   const [url, setUrl] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; message: string; job?: { title: string; company: string; location?: string } } | null>(null);
-  
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
   // 手动添加
-  const [manualJob, setManualJob] = useState({
+  const [manualForm, setManualForm] = useState({
     title: '',
     company: '',
     location: '',
-    description: '',
     sourceUrl: '',
+    description: '',
   });
-  const [manualLoading, setManualLoading] = useState(false);
 
   // 智能搜索
   const [searchCompany, setSearchCompany] = useState('');
   const [searchJobType, setSearchJobType] = useState('实习');
   const [searching, setSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<Array<{
-    title: string;
-    location?: string;
-    url: string;
-    description?: string;
-  }>>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [selectedJobs, setSelectedJobs] = useState<Set<number>>(new Set());
   const [importing, setImporting] = useState(false);
 
+  const [activeTab, setActiveTab] = useState('url');
+
+  // 链接导入处理
   const handleImport = async () => {
     if (!url.trim()) {
       toast.error('请输入岗位链接');
       return;
     }
 
-    setLoading(true);
-    setResult(null);
+    setIsLoading(true);
+    setError('');
 
     try {
-      // 调用Edge Function抓取链接内容
       const { data, error } = await supabase.functions.invoke('import-job-from-url', {
         body: { url: url.trim() },
       });
@@ -59,113 +62,189 @@ export default function ImportPage() {
       if (error) throw error;
 
       if (data.success) {
-        setResult({
-          success: true,
-          message: data.message || '导入成功',
-          job: data.job,
-        });
-        toast.success('岗位导入成功！');
-        
-        // 3秒后跳转到首页
-        setTimeout(() => {
-          navigate('/');
-        }, 3000);
+        toast.success(data.message);
+        navigate('/');
+      } else if (data.needManualInput) {
+        setError(data.error);
+        setActiveTab('manual');
       } else {
-        setResult({
-          success: false,
-          message: data.error || '导入失败',
-        });
-        toast.error(data.error || '导入失败');
+        setError(data.error || '导入失败');
       }
-    } catch (error) {
-      console.error('导入失败:', error);
-      const errorMessage = error instanceof Error ? error.message : '未知错误';
-      setResult({
-        success: false,
-        message: errorMessage || '网络错误，请重试',
-      });
-      toast.error('导入失败：' + errorMessage);
+    } catch (err) {
+      setError('网络错误，请重试');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
+  // 手动添加处理
   const handleManualAdd = async () => {
-    if (!manualJob.title || !manualJob.company) {
-      toast.error('请至少填写岗位名称和公司名称');
+    if (!manualForm.title.trim() || !manualForm.company.trim()) {
+      toast.error('请填写岗位名称和公司名称');
       return;
     }
 
-    setManualLoading(true);
+    setIsLoading(true);
 
     try {
-      // 智能匹配分类
       const { data: categories } = await supabase.from('job_categories').select('*');
-      
-      let categoryId = null;
-      if (categories) {
-        const titleLower = manualJob.title.toLowerCase();
-        if (titleLower.includes('产品') && !titleLower.includes('运营')) {
-          categoryId = categories.find(c => c.name.includes('产品经理'))?.id;
-        } else if (titleLower.includes('运营')) {
-          categoryId = categories.find(c => c.name.includes('运营'))?.id;
-        } else if (titleLower.includes('数据')) {
-          categoryId = categories.find(c => c.name.includes('数据'))?.id;
-        } else if (titleLower.includes('分析') || titleLower.includes('商业')) {
-          categoryId = categories.find(c => c.name.includes('商业'))?.id;
-        }
-        if (!categoryId) categoryId = categories[0]?.id;
-      }
+      const categoryId = categories?.[0]?.id;
 
-      // 插入岗位
       const { error } = await supabase.from('jobs').insert({
-        title: manualJob.title,
-        company: manualJob.company,
-        location: manualJob.location || '未知',
-        description: manualJob.description || '',
-        source_url: manualJob.sourceUrl || `https://manual-add-${Date.now()}`,
+        title: manualForm.title.trim(),
+        company: manualForm.company.trim(),
+        location: manualForm.location.trim() || '未知',
+        description: manualForm.description.trim(),
+        source_url: manualForm.sourceUrl.trim() || null,
         category_id: categoryId,
         published_at: new Date().toISOString(),
-        scraped_at: new Date().toISOString(),
       });
 
       if (error) throw error;
 
-      toast.success('岗位添加成功！');
-      setTimeout(() => navigate('/'), 2000);
-    } catch (error) {
-      console.error('添加失败:', error);
+      toast.success('✨ 岗位添加成功');
+      navigate('/');
+    } catch (err) {
       toast.error('添加失败，请重试');
     } finally {
-      setManualLoading(false);
+      setIsLoading(false);
     }
   };
 
+  // 智能搜索处理
+  const handleSearch = async () => {
+    if (!searchCompany.trim()) {
+      toast.error('请输入公司名称');
+      return;
+    }
+
+    setSearching(true);
+    setSearchResults([]);
+    setSelectedJobs(new Set());
+
+    try {
+      console.log('🔍 开始联网搜索:', searchCompany, searchJobType);
+      
+      const { data, error } = await supabase.functions.invoke('search-company-jobs', {
+        body: {
+          company: searchCompany.trim(),
+          jobType: searchJobType.trim(),
+        },
+      });
+
+      console.log('搜索结果:', data);
+
+      if (error) {
+        console.error('搜索错误:', error);
+        throw error;
+      }
+
+      if (data.success) {
+        setSearchResults(data.jobs || []);
+        if (data.jobs && data.jobs.length > 0) {
+          toast.success(`找到 ${data.jobs.length} 个相关岗位`);
+        } else {
+          toast.info('未找到相关岗位，请尝试更换关键词');
+        }
+      } else {
+        toast.error(data.error || '搜索失败');
+      }
+    } catch (err: unknown) {
+      console.error('搜索异常:', err);
+      const errorMessage = err instanceof Error ? err.message : '搜索失败，请重试';
+      toast.error(errorMessage);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // 批量导入选中岗位
+  const handleBatchImport = async () => {
+    if (selectedJobs.size === 0) {
+      toast.error('请至少选择一个岗位');
+      return;
+    }
+
+    setImporting(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      const selectedResults = Array.from(selectedJobs).map(index => searchResults[index]);
+
+      for (const job of selectedResults) {
+        try {
+          const { data, error } = await supabase.functions.invoke('import-job-from-url', {
+            body: { url: job.url },
+          });
+
+          if (error) throw error;
+
+          if (data.success) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch {
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`✨ 成功导入 ${successCount} 个岗位`);
+        if (failCount > 0) {
+          toast.warning(`${failCount} 个岗位导入失败`);
+        }
+        navigate('/');
+      } else {
+        toast.error('所有岗位导入失败，请尝试手动添加');
+      }
+    } catch (err) {
+      toast.error('批量导入失败');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  // 切换岗位选择
+  const toggleJobSelection = (index: number) => {
+    const newSelected = new Set(selectedJobs);
+    if (newSelected.has(index)) {
+      newSelected.delete(index);
+    } else {
+      newSelected.add(index);
+    }
+    setSelectedJobs(newSelected);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
-      {/* 顶部导航 */}
-      <div className="bg-white/80 backdrop-blur-sm border-b sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            返回首页
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="border-b bg-card sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <Button variant="ghost" onClick={() => navigate('/')} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            返回
           </Button>
-          <div className="flex-1" />
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-6">
-        {/* 标题 */}
-        <div className="text-center mb-8 mt-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
-            🔗 导入岗位链接
-          </h1>
-          <p className="text-gray-600">复制招聘网站的岗位链接，自动抓取并保存</p>
+      {/* Content */}
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">导入岗位</h1>
+          <p className="text-muted-foreground">
+            通过智能搜索、链接导入或手动添加岗位信息
+          </p>
         </div>
 
         {/* 导入表单 - 使用Tabs */}
-        <Tabs defaultValue="url" className="mb-6">
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="search" className="gap-2">
+              <Search className="h-4 w-4" />
+              智能搜索
+            </TabsTrigger>
             <TabsTrigger value="url" className="gap-2">
               <Link2 className="h-4 w-4" />
               链接导入
@@ -176,94 +255,6 @@ export default function ImportPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* 链接导入 */}
-          <TabsContent value="url">
-            <Card className="border-2 border-purple-200 shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Link2 className="h-5 w-5 text-purple-600" />
-                  岗位链接
-                </CardTitle>
-                <CardDescription>
-                  ✨ 使用Jina Reader + Kimi AI智能解析岗位信息<br/>
-                  <span className="text-primary font-medium">支持字节跳动、拉勾网、智联招聘等网站</span>
-                  <br/>
-                  <span className="text-orange-600 text-xs">⚠️ BOSS直聘有严格反爬虫，请使用"手动添加"</span>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">岗位链接 *</label>
-                  <Input
-                    type="url"
-                    placeholder="例如：https://www.lagou.com/jobs/xxx.html"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    disabled={loading}
-                    className="text-base"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    💡 AI智能解析，自动提取岗位标题、公司、地点和职位描述
-                  </p>
-                </div>
-
-                <Button
-                  onClick={handleImport}
-                  disabled={loading || !url.trim()}
-                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                  size="lg"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      正在抓取岗位信息...
-                    </>
-                  ) : (
-                    <>
-                      <Link2 className="h-5 w-5 mr-2" />
-                      导入岗位
-                    </>
-                  )}
-                </Button>
-
-                {/* 结果显示 */}
-                {result && (
-                  <div
-                    className={`p-4 rounded-lg ${
-                      result.success
-                        ? 'bg-green-50 border border-green-200'
-                        : 'bg-red-50 border border-red-200'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      {result.success ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                      ) : (
-                        <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                      )}
-                      <div className="flex-1">
-                        <p
-                          className={`font-medium whitespace-pre-wrap ${
-                            result.success ? 'text-green-900' : 'text-red-900'
-                          }`}
-                        >
-                          {result.message}
-                        </p>
-                        {result.success && result.job && (
-                          <div className="mt-2 text-sm text-green-800">
-                            <p>岗位：{result.job.title}</p>
-                            <p>公司：{result.job.company}</p>
-                            <p className="text-xs text-green-600 mt-2">3秒后自动跳转到首页...</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           {/* 智能搜索 */}
           <TabsContent value="search">
             <Card className="border-2 border-green-200 shadow-lg">
@@ -273,16 +264,15 @@ export default function ImportPage() {
                   智能搜索岗位
                 </CardTitle>
                 <CardDescription>
-                  ✨ 使用AI联网搜索，自动找到公司的最新招聘信息<br/>
-                  <span className="text-primary font-medium">支持字节跳动、腾讯、阿里等所有公司</span>
+                  AI会自动联网搜索公司的最新岗位信息
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium mb-2 block">公司名称 *</label>
+                    <label className="text-sm font-medium mb-2 block">公司名称</label>
                     <Input
-                      placeholder="例如：字节跳动"
+                      placeholder="例如：字节跳动、腾讯"
                       value={searchCompany}
                       onChange={(e) => setSearchCompany(e.target.value)}
                       disabled={searching}
@@ -308,7 +298,7 @@ export default function ImportPage() {
                   {searching ? (
                     <>
                       <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      AI正在搜索岗位...
+                      AI正在联网搜索...
                     </>
                   ) : (
                     <>
@@ -320,61 +310,56 @@ export default function ImportPage() {
 
                 {/* 搜索结果 */}
                 {searchResults.length > 0 && (
-                  <div className="mt-6 space-y-3">
+                  <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">找到 {searchResults.length} 个岗位</h3>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const allIndices = searchResults.map((_, i) => i);
-                          setSelectedJobs(new Set(allIndices));
-                        }}
-                      >
-                        全选
-                      </Button>
+                      <h3 className="font-semibold text-lg">搜索结果</h3>
+                      <span className="text-sm text-muted-foreground">
+                        已选择 {selectedJobs.size}/{searchResults.length} 个岗位
+                      </span>
                     </div>
 
-                    {searchResults.map((job, index) => (
-                      <Card 
-                        key={index} 
-                        className={`cursor-pointer transition-all ${selectedJobs.has(index) ? 'border-primary bg-primary/5' : 'hover:border-primary/50'}`}
-                        onClick={() => toggleJobSelection(index)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-3">
-                            <input
-                              type="checkbox"
-                              checked={selectedJobs.has(index)}
-                              onChange={() => toggleJobSelection(index)}
-                              className="mt-1"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-base line-clamp-1">{job.title}</h4>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="outline">{job.location || '未知地点'}</Badge>
-                              </div>
-                              {job.description && (
-                                <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                                  {job.description}
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {searchResults.map((job, index) => (
+                        <Card
+                          key={index}
+                          className={`cursor-pointer transition-all ${
+                            selectedJobs.has(index)
+                              ? 'border-green-500 bg-green-50 dark:bg-green-950'
+                              : 'hover:border-primary'
+                          }`}
+                          onClick={() => toggleJobSelection(index)}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-3">
+                              <Checkbox
+                                checked={selectedJobs.has(index)}
+                                onCheckedChange={() => toggleJobSelection(index)}
+                                className="mt-1"
+                              />
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-base mb-1">{job.title}</h4>
+                                {job.location && (
+                                  <p className="text-sm text-muted-foreground mb-2">
+                                    📍 {job.location}
+                                  </p>
+                                )}
+                                {job.description && (
+                                  <p className="text-sm text-muted-foreground line-clamp-2">
+                                    {job.description}
+                                  </p>
+                                )}
+                                <p className="text-xs text-muted-foreground mt-2 truncate">
+                                  🔗 {job.url}
                                 </p>
-                              )}
-                              {job.url && (
-                                <a 
-                                  href={job.url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-primary hover:underline mt-1 inline-block"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  查看原文 →
-                                </a>
+                              </div>
+                              {selectedJobs.has(index) && (
+                                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
                               )}
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
 
                     <Button
                       onClick={handleBatchImport}
@@ -385,211 +370,160 @@ export default function ImportPage() {
                       {importing ? (
                         <>
                           <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                          正在导入 {selectedJobs.size} 个岗位...
+                          正在导入...
                         </>
                       ) : (
-                        <>
-                          <Plus className="h-5 w-5 mr-2" />
-                          导入选中的 {selectedJobs.size} 个岗位
-                        </>
+                        `导入选中的 ${selectedJobs.size} 个岗位`
                       )}
                     </Button>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                {/* 搜索提示 */}
-                {!searching && searchResults.length === 0 && (
-                  <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-                    <p className="text-sm text-muted-foreground">
-                      💡 <strong>使用技巧：</strong>
-                    </p>
-                    <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
-                      <li>输入完整公司名称效果更好（如"字节跳动"而不是"字节"）</li>
-                      <li>可以搜索"实习"、"校招"、"社招"等不同岗位类型</li>
-                      <li>AI会自动从公司官网和招聘平台搜索最新岗位</li>
-                    </ul>
+          {/* 链接导入 */}
+          <TabsContent value="url">
+            <Card>
+              <CardHeader>
+                <CardTitle>链接导入</CardTitle>
+                <CardDescription>
+                  粘贴岗位详情页链接，AI会自动解析内容
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">岗位链接</label>
+                  <Input
+                    type="url"
+                    placeholder="https://..."
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+
+                {error && (
+                  <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                    <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-destructive whitespace-pre-line">{error}</div>
                   </div>
                 )}
+
+                <Button
+                  onClick={handleImport}
+                  disabled={isLoading || !url.trim()}
+                  className="w-full"
+                  size="lg"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      导入中...
+                    </>
+                  ) : (
+                    '导入岗位'
+                  )}
+                </Button>
+
+                <div className="rounded-lg border border-border/50 bg-muted/30 p-4">
+                  <h3 className="font-medium mb-2 text-sm">✅ 支持的网站</h3>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• 字节跳动、腾讯、阿里等公司官网</li>
+                    <li>• 拉勾网、智联招聘、前程无忧</li>
+                    <li>• 其他大部分招聘网站</li>
+                  </ul>
+                  
+                  <div className="mt-4 pt-4 border-t border-border/50">
+                    <h3 className="font-medium mb-2 text-sm flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-500" />
+                      BOSS直聘说明
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      ⚠️ BOSS直聘有严格的反爬虫机制，建议使用"手动添加"功能
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           {/* 手动添加 */}
           <TabsContent value="manual">
-            <Card className="border-2 border-blue-200 shadow-lg">
+            <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <PenSquare className="h-5 w-5 text-blue-600" />
-                  手动添加岗位
-                </CardTitle>
+                <CardTitle>手动添加</CardTitle>
                 <CardDescription>
-                  适用于字节跳动、BOSS直聘等无法自动抓取的网站<br/>
-                  <span className="text-blue-600 font-medium">💡 提示：可直接从招聘网站复制粘贴信息，快速录入</span>
+                  💡 可直接从招聘网站复制粘贴信息，快速录入
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">岗位名称 *</label>
-                    <Input
-                      placeholder="例如：产品经理实习生"
-                      value={manualJob.title}
-                      onChange={(e) => setManualJob({ ...manualJob, title: e.target.value })}
-                      disabled={manualLoading}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">公司名称 *</label>
-                    <Input
-                      placeholder="例如：字节跳动"
-                      value={manualJob.company}
-                      onChange={(e) => setManualJob({ ...manualJob, company: e.target.value })}
-                      disabled={manualLoading}
-                    />
-                  </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">岗位名称 *</label>
+                  <Input
+                    placeholder="例如：产品经理实习生"
+                    value={manualForm.title}
+                    onChange={(e) => setManualForm({ ...manualForm, title: e.target.value })}
+                  />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">工作地点</label>
-                    <Input
-                      placeholder="例如：北京"
-                      value={manualJob.location}
-                      onChange={(e) => setManualJob({ ...manualJob, location: e.target.value })}
-                      disabled={manualLoading}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">岗位链接</label>
-                    <Input
-                      type="url"
-                      placeholder="原网站链接（选填）"
-                      value={manualJob.sourceUrl}
-                      onChange={(e) => setManualJob({ ...manualJob, sourceUrl: e.target.value })}
-                      disabled={manualLoading}
-                    />
-                  </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">公司名称 *</label>
+                  <Input
+                    placeholder="例如：字节跳动"
+                    value={manualForm.company}
+                    onChange={(e) => setManualForm({ ...manualForm, company: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">工作地点</label>
+                  <Input
+                    placeholder="例如：北京"
+                    value={manualForm.location}
+                    onChange={(e) => setManualForm({ ...manualForm, location: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">岗位链接</label>
+                  <Input
+                    type="url"
+                    placeholder="https://..."
+                    value={manualForm.sourceUrl}
+                    onChange={(e) => setManualForm({ ...manualForm, sourceUrl: e.target.value })}
+                  />
                 </div>
 
                 <div>
                   <label className="text-sm font-medium mb-2 block">岗位描述</label>
                   <Textarea
-                    placeholder="岗位职责、任职要求等信息（选填）"
-                    value={manualJob.description}
-                    onChange={(e) => setManualJob({ ...manualJob, description: e.target.value })}
-                    disabled={manualLoading}
-                    rows={6}
+                    placeholder="粘贴职位描述和要求..."
+                    value={manualForm.description}
+                    onChange={(e) => setManualForm({ ...manualForm, description: e.target.value })}
+                    rows={8}
                   />
                 </div>
 
                 <Button
                   onClick={handleManualAdd}
-                  disabled={manualLoading || !manualJob.title || !manualJob.company}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  disabled={isLoading}
+                  className="w-full"
                   size="lg"
                 >
-                  {manualLoading ? (
+                  {isLoading ? (
                     <>
                       <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      正在添加...
+                      添加中...
                     </>
                   ) : (
-                    <>
-                      <PenSquare className="h-5 w-5 mr-2" />
-                      添加岗位
-                    </>
+                    '添加岗位'
                   )}
                 </Button>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
-
-        {/* 支持的网站 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>✨ AI智能解析 - 支持所有招聘网站</CardTitle>
-            <CardDescription>使用Kimi AI模型分析网页内容，自动提取岗位信息</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {[
-                { name: '字节跳动', domain: 'bytedance.com', supported: true },
-                { name: '拉勾网', domain: 'lagou.com', supported: true },
-                { name: '智联招聘', domain: 'zhaopin.com', supported: true },
-                { name: '腾讯招聘', domain: 'tencent.com', supported: true },
-                { name: '阿里招聘', domain: 'alibaba.com', supported: true },
-                { name: 'BOSS直聘', domain: 'zhipin.com', supported: false, note: '请手动添加' },
-              ].map((site, index) => (
-                <div
-                  key={index}
-                  className={`flex flex-col gap-1 p-3 rounded-lg transition-colors ${
-                    site.supported ? 'bg-green-50 hover:bg-green-100' : 'bg-orange-50 hover:bg-orange-100'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {site.supported ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 text-orange-600 flex-shrink-0" />
-                    )}
-                    <span className="font-medium text-sm">{site.name}</span>
-                  </div>
-                  {site.domain && (
-                    <span className="text-xs text-gray-500 ml-6">{site.domain}</span>
-                  )}
-                  {site.note && (
-                    <span className="text-xs text-orange-600 ml-6">{site.note}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-            
-            <div className="mt-4 p-3 bg-primary/5 rounded-md border border-primary/20">
-              <p className="text-sm text-muted-foreground flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-primary" />
-                <span>
-                  <strong className="text-foreground">智能突破限制：</strong>即使网站使用JavaScript动态加载或反爬虫技术，AI模型也能理解并提取岗位信息
-                </span>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 使用说明 */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>📖 使用说明</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ol className="space-y-3 text-sm text-gray-700">
-              <li className="flex gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-bold text-xs">
-                  1
-                </span>
-                <span>在招聘网站找到感兴趣的岗位，打开岗位详情页</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-bold text-xs">
-                  2
-                </span>
-                <span>复制浏览器地址栏的完整链接（包括 https://）</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-bold text-xs">
-                  3
-                </span>
-                <span>粘贴到上方输入框，点击"导入岗位"</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold text-xs">
-                  ✓
-                </span>
-                <span>AI智能分析网页内容，自动提取岗位信息并保存，导入完成！</span>
-              </li>
-            </ol>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
