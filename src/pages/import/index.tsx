@@ -282,7 +282,7 @@ export default function ImportPage() {
                   智能搜索岗位
                 </CardTitle>
                 <CardDescription>
-                  AI会自动联网搜索公司的最新岗位信息
+                  使用Tavily搜索引擎查找真实的招聘信息
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -336,10 +336,10 @@ export default function ImportPage() {
                       </span>
                     </div>
 
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950 p-3">
-                      <p className="text-sm text-amber-800 dark:text-amber-200">
-                        💡 <strong>提示</strong>：AI搜索的链接可能无法直接访问，导入失败属于正常情况。
-                        如果批量导入失败，建议使用"手动添加"功能。
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950 p-3">
+                      <p className="text-sm text-blue-800 dark:text-blue-200">
+                        ✅ <strong>使用真实搜索引擎</strong>：通过Tavily搜索真实的招聘网页，
+                        确保链接可访问。建议搜索公司官网或主流招聘平台的岗位。
                       </p>
                     </div>
 
