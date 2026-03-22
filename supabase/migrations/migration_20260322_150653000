@@ -1,0 +1,9 @@
+
+-- 删除所有岗位数据（保留表结构）
+TRUNCATE TABLE jobs CASCADE;
+
+-- 重置相关的用户状态表
+TRUNCATE TABLE user_job_status CASCADE;
+
+-- 重置模拟面试会话表
+TRUNCATE TABLE mock_interview_sessions CASCADE;
