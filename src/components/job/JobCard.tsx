@@ -3,9 +3,9 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatRelativeTime } from '@/lib/date-utils';
-import { useUpdateJobStatus } from '@/hooks/use-jobs';
+import { useUpdateJobStatus, useToggleBookmark, useDeleteJob } from '@/hooks/use-jobs';
 import { toast } from 'sonner';
-import { MapPin, ExternalLink, Bookmark, Check, MessageSquare } from 'lucide-react';
+import { MapPin, ExternalLink, Bookmark, Check, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -15,14 +15,16 @@ interface JobCardProps {
 
 export function JobCard({ job }: JobCardProps) {
   const updateStatus = useUpdateJobStatus();
+  const toggleBookmark = useToggleBookmark();
+  const deleteJob = useDeleteJob();
   const navigate = useNavigate();
-  const isBookmarked = job.status === 'bookmarked';
-  const isApplied = job.status !== 'pending' && job.status !== 'bookmarked';
+  const isBookmarked = job.is_bookmarked || false;
+  const isApplied = job.status !== 'pending';
 
-  const handleBookmark = () => {
-    const newStatus: JobStatus = isBookmarked ? 'pending' : 'bookmarked';
-    updateStatus.mutate(
-      { jobId: job.id, status: newStatus },
+  const handleBookmark = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleBookmark.mutate(
+      { jobId: job.id, isBookmarked: !isBookmarked },
       {
         onSuccess: () => {
           toast.success(isBookmarked ? '已取消收藏' : '已添加收藏');
@@ -31,7 +33,8 @@ export function JobCard({ job }: JobCardProps) {
     );
   };
 
-  const handleApply = () => {
+  const handleApply = (e: React.MouseEvent) => {
+    e.stopPropagation();
     updateStatus.mutate(
       { jobId: job.id, status: 'applied' },
       {
@@ -40,6 +43,20 @@ export function JobCard({ job }: JobCardProps) {
         },
       }
     );
+  };
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('确定要删除这个岗位吗？删除后可以在"已删除"栏目中恢复。')) {
+      return;
+    }
+    
+    try {
+      await deleteJob.mutateAsync(job.id);
+      toast.success('岗位已删除');
+    } catch (error) {
+      toast.error('删除失败，请重试');
+    }
   };
 
   const handleStartInterview = () => {
@@ -77,13 +94,18 @@ export function JobCard({ job }: JobCardProps) {
           <Button
             variant="ghost"
             size="icon"
-            onClick={(e) => {
-              e.stopPropagation(); // 阻止冒泡到卡片点击
-              handleBookmark();
-            }}
+            onClick={handleBookmark}
             className={cn(isBookmarked && 'text-yellow-500')}
           >
             <Bookmark className={cn('h-5 w-5', isBookmarked && 'fill-current')} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleDelete}
+            className="text-destructive hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </CardHeader>
@@ -123,10 +145,7 @@ export function JobCard({ job }: JobCardProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleApply();
-            }}
+            onClick={handleApply}
             className="flex-1"
           >
             <Check className="h-4 w-4 mr-1" />

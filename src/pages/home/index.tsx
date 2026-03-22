@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { JobList } from '@/components/job/JobList';
-import { useJobs, useAppliedJobs, useDeletedJobs } from '@/hooks/use-jobs';
+import { useJobs, useAppliedJobs, useDeletedJobs, useBookmarkedJobs } from '@/hooks/use-jobs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, RefreshCw, Link2 } from 'lucide-react';
@@ -20,16 +20,17 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // 获取所有岗位、已投递岗位、已删除岗位
+  // 获取所有岗位、已投递岗位、已删除岗位、已收藏岗位
   const { data: allJobs, isLoading: allJobsLoading, refetch } = useJobs(
     selectedCategoryId || undefined,
     []
   );
   const { data: appliedJobs, isLoading: appliedJobsLoading } = useAppliedJobs();
   const { data: deletedJobs, isLoading: deletedJobsLoading } = useDeletedJobs();
+  const { data: bookmarkedJobs, isLoading: bookmarkedJobsLoading } = useBookmarkedJobs();
 
   // 统计收藏和删除数量
-  const bookmarkedCount = appliedJobs?.filter(item => item.status === 'bookmarked').length || 0;
+  const bookmarkedCount = bookmarkedJobs?.length || 0;
   const deletedCount = deletedJobs?.length || 0;
 
   // 互斥选择逻辑
@@ -65,27 +66,23 @@ export default function Home() {
   const displayJobs = showDeleted
     ? deletedJobs
     : showBookmarked
-    ? appliedJobs
-        ?.filter(item => item.status === 'bookmarked')
-        .map(item => ({
-          ...item.job,
-          status: item.status,
-          user_status_id: item.id,
-        }))
+    ? bookmarkedJobs
     : selectedStatus
     ? appliedJobs
         ?.filter(item => item.status === selectedStatus)
         .map(item => ({
           ...item.job,
           status: item.status,
+          is_bookmarked: item.is_bookmarked,
           user_status_id: item.id,
         }))
-    : allJobs?.filter(job => 
-        !['applied', 'written_test', 'first_interview', 'second_interview', 
-          'final_interview', 'offer', 'rejected', 'bookmarked'].includes(job.status as JobStatus)
-      );
+    : allJobs;  // 显示所有岗位，包括已收藏的
 
-  const isLoading = showDeleted ? deletedJobsLoading : (selectedStatus || showBookmarked ? appliedJobsLoading : allJobsLoading);
+  const isLoading = showDeleted 
+    ? deletedJobsLoading 
+    : showBookmarked 
+    ? bookmarkedJobsLoading 
+    : (selectedStatus ? appliedJobsLoading : allJobsLoading);
 
   // 根据搜索关键词过滤岗位
   const filteredJobs = displayJobs?.filter(job => {

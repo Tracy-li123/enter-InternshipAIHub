@@ -12,7 +12,7 @@ import { statusLabelMap } from '@/lib/status-colors';
 import { formatRelativeTime } from '@/lib/date-utils';
 import { toast } from 'sonner';
 import { JobStatus } from '@/types/job';
-import { useDeleteJob, useRestoreJob } from '@/hooks/use-jobs';
+import { useDeleteJob, useRestoreJob, useToggleBookmark } from '@/hooks/use-jobs';
 
 export default function JobDetail() {
   const { jobId } = useParams();
@@ -57,7 +57,7 @@ export default function JobDetail() {
   useEffect(() => {
     if (userStatus) {
       setCurrentStatus(userStatus.status as JobStatus);
-      setIsBookmarked(userStatus.status === 'bookmarked');
+      setIsBookmarked(userStatus.is_bookmarked || false);
     }
   }, [userStatus]);
 
@@ -84,6 +84,7 @@ export default function JobDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-job-status', jobId] });
       queryClient.invalidateQueries({ queryKey: ['applied-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
       toast.success('状态已更新');
     },
     onError: () => {
@@ -94,15 +95,24 @@ export default function JobDetail() {
   const handleStatusChange = (status: string) => {
     const newStatus = status as JobStatus;
     setCurrentStatus(newStatus);
-    setIsBookmarked(newStatus === 'bookmarked');
     updateStatusMutation.mutate(newStatus);
   };
 
+  const toggleBookmarkMutation = useToggleBookmark();
+
   const handleToggleBookmark = () => {
-    const newStatus: JobStatus = isBookmarked ? 'pending' : 'bookmarked';
-    setIsBookmarked(!isBookmarked);
-    setCurrentStatus(newStatus);
-    updateStatusMutation.mutate(newStatus);
+    toggleBookmarkMutation.mutate(
+      { jobId: jobId!, isBookmarked: !isBookmarked },
+      {
+        onSuccess: () => {
+          setIsBookmarked(!isBookmarked);
+          toast.success(isBookmarked ? '已取消收藏' : '已添加收藏');
+        },
+        onError: () => {
+          toast.error('操作失败，请重试');
+        },
+      }
+    );
   };
 
   // 删除和恢复功能
@@ -269,7 +279,6 @@ export default function JobDetail() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pending">待投递</SelectItem>
-                  <SelectItem value="bookmarked">收藏</SelectItem>
                   <SelectItem value="applied">已投递</SelectItem>
                   <SelectItem value="written_test">笔试</SelectItem>
                   <SelectItem value="first_interview">一面</SelectItem>

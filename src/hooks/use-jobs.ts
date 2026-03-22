@@ -14,7 +14,7 @@ export function useJobs(categoryId?: string, excludeStatuses: JobStatus[] = []) 
         .select(`
           *,
           category:job_categories(*),
-          user_status:user_job_status(id, status, updated_at)
+          user_status:user_job_status(id, status, is_bookmarked, updated_at)
         `)
         .is('deleted_at', null)  // 只获取未删除的岗位
         .order('published_at', { ascending: false });
@@ -33,6 +33,7 @@ export function useJobs(categoryId?: string, excludeStatuses: JobStatus[] = []) 
         return {
           ...jobData,
           status: userStatus?.[0]?.status || 'pending',
+          is_bookmarked: userStatus?.[0]?.is_bookmarked || false,
           user_status_id: userStatus?.[0]?.id,
           status_updated_at: userStatus?.[0]?.updated_at,
         };
@@ -60,7 +61,7 @@ export function useJob(jobId: string) {
         .select(`
           *,
           category:job_categories(*),
-          user_status:user_job_status(id, status, notes, updated_at)
+          user_status:user_job_status(id, status, is_bookmarked, notes, updated_at)
         `)
         .eq('id', jobId)
         .single();
@@ -72,6 +73,7 @@ export function useJob(jobId: string) {
       return {
         ...jobData,
         status: userStatus?.[0]?.status || 'pending',
+        is_bookmarked: userStatus?.[0]?.is_bookmarked || false,
         user_status_id: userStatus?.[0]?.id,
         status_updated_at: userStatus?.[0]?.updated_at,
       } as JobWithStatus;
@@ -80,7 +82,7 @@ export function useJob(jobId: string) {
 }
 
 /**
- * 获取已投递的岗位列表
+ * 获取已投递的岗位列表（不包括pending，包括已收藏的岗位）
  */
 export function useAppliedJobs() {
   return useQuery({
@@ -93,11 +95,45 @@ export function useAppliedJobs() {
           job:jobs(*)
         `)
         .neq('status', 'pending')
-        .neq('status', 'bookmarked')
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
       return data as (UserJobStatus & { job: Job })[];
+    },
+  });
+}
+
+/**
+ * 获取已收藏的岗位列表
+ */
+export function useBookmarkedJobs() {
+  return useQuery({
+    queryKey: ['bookmarked-jobs'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_job_status')
+        .select(`
+          *,
+          job:jobs!inner(*)
+        `)
+        .eq('is_bookmarked', true)
+        .is('job.deleted_at', null)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+      
+      // 转换数据格式
+      return (data as unknown[]).map((item: unknown) => {
+        const itemData = item as Record<string, unknown>;
+        const job = itemData.job as Record<string, unknown>;
+        return {
+          ...job,
+          status: itemData.status,
+          is_bookmarked: itemData.is_bookmarked,
+          user_status_id: itemData.id,
+          status_updated_at: itemData.updated_at,
+        };
+      }) as JobWithStatus[];
     },
   });
 }
@@ -114,7 +150,7 @@ export function useDeletedJobs() {
         .select(`
           *,
           category:job_categories(*),
-          user_status:user_job_status(id, status, updated_at)
+          user_status:user_job_status(id, status, is_bookmarked, updated_at)
         `)
         .not('deleted_at', 'is', null)
         .order('deleted_at', { ascending: false });
@@ -128,6 +164,7 @@ export function useDeletedJobs() {
         return {
           ...jobData,
           status: userStatus?.[0]?.status || 'pending',
+          is_bookmarked: userStatus?.[0]?.is_bookmarked || false,
           user_status_id: userStatus?.[0]?.id,
           status_updated_at: userStatus?.[0]?.updated_at,
         };
@@ -180,6 +217,35 @@ export function useRestoreJob() {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['deleted-jobs'] });
       queryClient.invalidateQueries({ queryKey: ['job'] });
+    },
+  });
+}
+
+/**
+ * 切换收藏状态
+ */
+export function useToggleBookmark() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ jobId, isBookmarked }: { jobId: string; isBookmarked: boolean }) => {
+      const { error } = await supabase
+        .from('user_job_status')
+        .upsert({
+          job_id: jobId,
+          user_id: 'default_user',
+          is_bookmarked: isBookmarked,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'job_id,user_id'
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['bookmarked-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['user-job-status'] });
     },
   });
 }

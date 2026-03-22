@@ -1,0 +1,14 @@
+
+-- 添加独立的收藏字段
+ALTER TABLE user_job_status ADD COLUMN is_bookmarked boolean DEFAULT false;
+
+-- 创建索引提高查询效率
+CREATE INDEX idx_user_job_status_bookmarked ON user_job_status(user_id, is_bookmarked) WHERE is_bookmarked = true;
+
+-- 迁移现有的收藏状态
+UPDATE user_job_status 
+SET is_bookmarked = true, status = 'pending' 
+WHERE status = 'bookmarked';
+
+-- 添加注释
+COMMENT ON COLUMN user_job_status.is_bookmarked IS 'Independent bookmark flag, separate from delivery status';

@@ -3,11 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Link2, Loader2, CheckCircle2, AlertCircle, ArrowLeft, PenSquare } from 'lucide-react';
+import { Link2, Loader2, CheckCircle2, AlertCircle, ArrowLeft, PenSquare, Search, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 
 export default function ImportPage() {
   const navigate = useNavigate();
@@ -26,6 +27,19 @@ export default function ImportPage() {
     sourceUrl: '',
   });
   const [manualLoading, setManualLoading] = useState(false);
+
+  // 智能搜索
+  const [searchCompany, setSearchCompany] = useState('');
+  const [searchJobType, setSearchJobType] = useState('实习');
+  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<Array<{
+    title: string;
+    location?: string;
+    url: string;
+    description?: string;
+  }>>([]);
+  const [selectedJobs, setSelectedJobs] = useState<Set<number>>(new Set());
+  const [importing, setImporting] = useState(false);
 
   const handleImport = async () => {
     if (!url.trim()) {
@@ -244,6 +258,156 @@ export default function ImportPage() {
                         )}
                       </div>
                     </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 智能搜索 */}
+          <TabsContent value="search">
+            <Card className="border-2 border-green-200 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="h-5 w-5 text-green-600" />
+                  智能搜索岗位
+                </CardTitle>
+                <CardDescription>
+                  ✨ 使用AI联网搜索，自动找到公司的最新招聘信息<br/>
+                  <span className="text-primary font-medium">支持字节跳动、腾讯、阿里等所有公司</span>
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">公司名称 *</label>
+                    <Input
+                      placeholder="例如：字节跳动"
+                      value={searchCompany}
+                      onChange={(e) => setSearchCompany(e.target.value)}
+                      disabled={searching}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">岗位类型</label>
+                    <Input
+                      placeholder="例如：实习、校招"
+                      value={searchJobType}
+                      onChange={(e) => setSearchJobType(e.target.value)}
+                      disabled={searching}
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleSearch}
+                  disabled={searching || !searchCompany.trim()}
+                  className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
+                  size="lg"
+                >
+                  {searching ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      AI正在搜索岗位...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-5 w-5 mr-2" />
+                      搜索岗位
+                    </>
+                  )}
+                </Button>
+
+                {/* 搜索结果 */}
+                {searchResults.length > 0 && (
+                  <div className="mt-6 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold">找到 {searchResults.length} 个岗位</h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const allIndices = searchResults.map((_, i) => i);
+                          setSelectedJobs(new Set(allIndices));
+                        }}
+                      >
+                        全选
+                      </Button>
+                    </div>
+
+                    {searchResults.map((job, index) => (
+                      <Card 
+                        key={index} 
+                        className={`cursor-pointer transition-all ${selectedJobs.has(index) ? 'border-primary bg-primary/5' : 'hover:border-primary/50'}`}
+                        onClick={() => toggleJobSelection(index)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedJobs.has(index)}
+                              onChange={() => toggleJobSelection(index)}
+                              className="mt-1"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-base line-clamp-1">{job.title}</h4>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="outline">{job.location || '未知地点'}</Badge>
+                              </div>
+                              {job.description && (
+                                <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                                  {job.description}
+                                </p>
+                              )}
+                              {job.url && (
+                                <a 
+                                  href={job.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-primary hover:underline mt-1 inline-block"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  查看原文 →
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+
+                    <Button
+                      onClick={handleBatchImport}
+                      disabled={importing || selectedJobs.size === 0}
+                      className="w-full"
+                      size="lg"
+                    >
+                      {importing ? (
+                        <>
+                          <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                          正在导入 {selectedJobs.size} 个岗位...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-5 w-5 mr-2" />
+                          导入选中的 {selectedJobs.size} 个岗位
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {/* 搜索提示 */}
+                {!searching && searchResults.length === 0 && (
+                  <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      💡 <strong>使用技巧：</strong>
+                    </p>
+                    <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
+                      <li>输入完整公司名称效果更好（如"字节跳动"而不是"字节"）</li>
+                      <li>可以搜索"实习"、"校招"、"社招"等不同岗位类型</li>
+                      <li>AI会自动从公司官网和招聘平台搜索最新岗位</li>
+                    </ul>
                   </div>
                 )}
               </CardContent>

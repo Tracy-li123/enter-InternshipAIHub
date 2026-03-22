@@ -1,7 +1,6 @@
-// 岗位状态枚举
+// 岗位状态枚举（移除bookmarked）
 export type JobStatus = 
   | 'pending'           // 待投递
-  | 'bookmarked'        // 收藏
   | 'applied'           // 已投递
   | 'written_test'      // 笔试
   | 'first_interview'   // 一面
@@ -39,6 +38,7 @@ export interface UserJobStatus {
   job_id: string;
   user_id: string;
   status: JobStatus;
+  is_bookmarked: boolean;
   notes: string | null;
   updated_at: string;
   created_at: string;
@@ -47,7 +47,9 @@ export interface UserJobStatus {
 // 带状态的岗位信息（联合查询结果）
 export interface JobWithStatus extends Job {
   status?: JobStatus;
+  is_bookmarked?: boolean;
   user_status_id?: string;
   status_updated_at?: string;
   category?: JobCategory;
+  deleted_at?: string | null;
 }
