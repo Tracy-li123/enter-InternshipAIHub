@@ -1,18 +1,12 @@
-// 默认平台地址
+// Supabase 配置
+const SUPABASE_URL = 'https://mqlhknolbjnsfrqyzidh.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xbGhrbm9sYmpuc2ZycXl6aWRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk1MjU0MjYsImV4cCI6MjA1NTEwMTQyNn0.ySEKWUXAGIOJi-MlKg-vfGFZQUwX0PU2z_ycAW_vF8E';
+
+// 默认平台地址（前端页面）
 const DEFAULT_PLATFORM_URL = 'http://localhost:5173';
 
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', async () => {
-  // 加载保存的平台地址
-  const result = await chrome.storage.sync.get(['platformUrl']);
-  const platformUrl = result.platformUrl || DEFAULT_PLATFORM_URL;
-  document.getElementById('platformUrl').value = platformUrl;
-  
-  // 保存平台地址
-  document.getElementById('platformUrl').addEventListener('change', async (e) => {
-    await chrome.storage.sync.set({ platformUrl: e.target.value });
-  });
-  
   // 检测当前网站
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   detectWebsite(tab.url);
@@ -20,11 +14,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 采集按钮
   document.getElementById('extractBtn').addEventListener('click', extractJobInfo);
   
-  // 打开平台按钮
+  // 打开平台按钮 - 打开用户的实际平台
   document.getElementById('openPlatformBtn').addEventListener('click', async () => {
-    const result = await chrome.storage.sync.get(['platformUrl']);
-    const url = result.platformUrl || DEFAULT_PLATFORM_URL;
-    chrome.tabs.create({ url });
+    // 打开预览地址或localhost
+    chrome.tabs.create({ url: 'http://localhost:5173' });
   });
 });
 
@@ -86,18 +79,11 @@ async function extractJobInfo() {
       throw new Error('未能获取岗位信息，请确保在岗位详情页');
     }
     
-    // 发送到平台API
-    const result = await chrome.storage.sync.get(['platformUrl']);
-    const platformUrl = result.platformUrl || DEFAULT_PLATFORM_URL;
-    
-    // 构建API地址 - 使用Supabase Edge Function
-    // 如果是localhost，使用本地Supabase；如果是生产环境，使用生产Supabase
-    const apiUrl = platformUrl.includes('localhost') 
-      ? 'http://127.0.0.1:54321/functions/v1/import-job-from-extension'
-      : `${platformUrl}/functions/v1/import-job-from-extension`;
+    // 发送到Supabase Edge Function API
+    const apiUrl = `${SUPABASE_URL}/functions/v1/import-job-from-extension`;
     
     console.log('采集到的岗位信息:', jobInfo);
-    console.log('发送到API:', apiUrl);
+    console.log('发送到Supabase API:', apiUrl);
     
     // 发送到后端API
     try {
@@ -105,6 +91,7 @@ async function extractJobInfo() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify(jobInfo)
       });
