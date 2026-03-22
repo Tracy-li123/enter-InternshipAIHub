@@ -3,7 +3,7 @@ import NotFound from "./pages/NotFound";
 import Interview from "./pages/interview/[jobId]";
 import Dashboard from "./pages/dashboard";
 import JobDetail from "./pages/job/[jobId]";
-import Bookmarklet from "./pages/bookmarklet/index";
+import ImportPage from "./pages/import/index";
 
 export const routers = [
     {
@@ -27,9 +27,9 @@ export const routers = [
       element: <Dashboard />,
     },
     {
-      path: "/bookmarklet",
-      name: 'bookmarklet',
-      element: <Bookmarklet />,
+      path: "/import",
+      name: 'import',
+      element: <ImportPage />,
     },
     /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
     {

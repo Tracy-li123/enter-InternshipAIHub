@@ -4,13 +4,15 @@ import { JobList } from '@/components/job/JobList';
 import { useJobs, useAppliedJobs } from '@/hooks/use-jobs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, RefreshCw } from 'lucide-react';
+import { Search, RefreshCw, Link2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { JobStatus } from '@/types/job';
 import { statusLabelMap } from '@/lib/status-colors';
+import { useNavigate } from 'react-router-dom';
 
 export default function Home() {
+  const navigate = useNavigate();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<JobStatus | null>(null);
   const [showBookmarked, setShowBookmarked] = useState(false);
@@ -126,6 +128,14 @@ export default function Home() {
                   className="pl-9"
                 />
               </div>
+              <Button 
+                variant="outline"
+                onClick={() => navigate('/import')}
+                className="gap-2"
+              >
+                <Link2 className="h-4 w-4" />
+                导入链接
+              </Button>
               <Button 
                 variant="outline"
                 onClick={handleRefreshJobs}
