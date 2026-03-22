@@ -4,7 +4,7 @@ import { JobList } from '@/components/job/JobList';
 import { useJobs, useAppliedJobs, useDeletedJobs, useBookmarkedJobs } from '@/hooks/use-jobs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, RefreshCw, Link2 } from 'lucide-react';
+import { Search, Link2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { JobStatus } from '@/types/job';
@@ -18,7 +18,6 @@ export default function Home() {
   const [showBookmarked, setShowBookmarked] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // 获取所有岗位、已投递岗位、已删除岗位、已收藏岗位
   const { data: allJobs, isLoading: allJobsLoading, refetch } = useJobs(
@@ -95,26 +94,7 @@ export default function Home() {
     );
   });
 
-  const handleRefreshJobs = async () => {
-    setIsRefreshing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('job-scraper-62325baf28c7');
-      
-      if (error) throw error;
-      
-      if (data?.success) {
-        toast.success(`成功更新岗位！新增 ${data.stats.inserted} 个岗位`);
-        refetch();
-      } else {
-        toast.error('更新失败，请稍后重试');
-      }
-    } catch (error) {
-      console.error('Refresh error:', error);
-      toast.error('更新失败，请稍后重试');
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+
 
   return (
     <MainLayout 
@@ -149,16 +129,7 @@ export default function Home() {
                 className="gap-2"
               >
                 <Link2 className="h-4 w-4" />
-                导入链接
-              </Button>
-              <Button 
-                variant="outline"
-                onClick={handleRefreshJobs}
-                disabled={isRefreshing}
-                className="gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                {isRefreshing ? '更新中...' : '更新岗位'}
+                导入岗位
               </Button>
             </div>
           </div>
