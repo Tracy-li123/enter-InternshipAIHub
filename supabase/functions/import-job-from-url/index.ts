@@ -22,7 +22,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("🔍 开始智能分析:", url);
+    console.log("🔍 AI智能分析:", url);
 
     // 步骤1: 抓取网页HTML
     const response = await fetch(url, {
@@ -38,7 +38,7 @@ serve(async (req) => {
     }
 
     const html = await response.text();
-    console.log("✅ HTML获取成功，长度:", html.length);
+    console.log("✅ HTML获取:", html.length, "字符");
 
     // 步骤2: 使用AI模型解析网页内容
     const AI_API_TOKEN = Deno.env.get("AI_API_TOKEN_62325baf28c7");
@@ -46,7 +46,7 @@ serve(async (req) => {
       throw new Error("AI配置未找到");
     }
 
-    console.log("🤖 正在使用AI模型分析网页...");
+    console.log("🤖 调用Kimi AI...");
 
     const aiResponse = await fetch("https://api.enter.pro/code/api/v1/ai/messages", {
       method: "POST",
@@ -59,19 +59,19 @@ serve(async (req) => {
         messages: [
           {
             role: "user",
-            content: `你是一个专业的招聘信息提取助手。请从以下HTML中提取岗位信息，并以JSON格式返回。
+            content: `你是招聘信息提取专家。请从HTML中提取岗位信息，返回JSON。
 
 要求：
-1. 提取岗位名称(title)、公司名称(company)、工作地点(location)、岗位描述(description)
-2. 如果是实习岗位，title中一定要保留"实习"二字
-3. description要提取完整的职位描述，包括工作内容、任职要求等
-4. 如果某个字段无法提取，设置为空字符串""
-5. 只返回JSON，不要有其他文字说明
+1. 提取：title（岗位名称）、company（公司）、location（地点）、description（完整职位描述）
+2. 保留"实习"字样
+3. description要完整，包括职责和要求
+4. 无法提取的字段用空字符串
+5. 只返回JSON，不要其他文字
 
-HTML内容：
+HTML（前50000字符）：
 ${html.substring(0, 50000)}
 
-请返回JSON格式（不要markdown代码块）：
+返回格式（不要markdown）：
 {"title":"","company":"","location":"","description":""}`,
           },
         ],
@@ -82,12 +82,12 @@ ${html.substring(0, 50000)}
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("❌ AI调用失败:", errorText);
+      console.error("❌ AI调用失败:", errorText.substring(0, 500));
       throw new Error("AI分析失败");
     }
 
     const aiResult = await aiResponse.json();
-    console.log("✅ AI分析完成");
+    console.log("✅ AI响应成功");
 
     // 提取AI返回的文本内容
     let aiText = "";
@@ -98,37 +98,35 @@ ${html.substring(0, 50000)}
       }
     }
 
-    console.log("AI返回内容:", aiText.substring(0, 500));
+    console.log("📄 AI返回:", aiText.substring(0, 300));
 
-    // 解析JSON（尝试提取JSON块）
+    // 解析JSON
     let jobInfo: any;
     try {
-      // 尝试直接解析
       jobInfo = JSON.parse(aiText);
     } catch (e) {
-      // 尝试提取JSON代码块
       const jsonMatch = aiText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         jobInfo = JSON.parse(jsonMatch[0]);
       } else {
+        console.error("❌ JSON解析失败");
         throw new Error("AI返回格式不正确");
       }
     }
 
-    console.log("📋 提取的信息:", {
+    console.log("✅ 提取结果:", {
       title: jobInfo.title?.substring(0, 50),
       company: jobInfo.company,
       location: jobInfo.location,
       descLength: jobInfo.description?.length || 0,
     });
 
-    // 验证必填字段
     if (!jobInfo.title || !jobInfo.company) {
       console.error("❌ 缺少必填字段");
       return new Response(
         JSON.stringify({
           success: false,
-          error: "AI未能识别完整的岗位信息，请尝试手动添加",
+          error: "AI未能识别完整信息，请尝试手动添加",
           needManualInput: true,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -140,7 +138,6 @@ ${html.substring(0, 50000)}
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 检查是否已存在
     const { data: existing } = await supabase
       .from('jobs')
       .select('id')
@@ -159,11 +156,9 @@ ${html.substring(0, 50000)}
       );
     }
 
-    // 匹配类别
     const { data: categories } = await supabase.from('job_categories').select('*');
     const categoryId = matchCategory(jobInfo.title, categories || []);
 
-    // 插入新岗位
     const { data: newJob, error: insertError } = await supabase
       .from('jobs')
       .insert({
@@ -180,7 +175,7 @@ ${html.substring(0, 50000)}
       .single();
 
     if (insertError) {
-      console.error("❌ 数据库插入失败:", insertError);
+      console.error("❌ 插入失败:", insertError);
       throw insertError;
     }
 
@@ -196,7 +191,7 @@ ${html.substring(0, 50000)}
     );
 
   } catch (error: any) {
-    console.error("❌ 导入失败:", error);
+    console.error("❌ 导入失败:", error.message);
     return new Response(
       JSON.stringify({
         success: false,
