@@ -42,7 +42,7 @@ export default function ImportPage() {
   const [selectedJobs, setSelectedJobs] = useState<Set<number>>(new Set());
   const [importing, setImporting] = useState(false);
 
-  const [activeTab, setActiveTab] = useState('url');
+  const [activeTab, setActiveTab] = useState('search');
 
   // 链接导入处理
   const handleImport = async () => {

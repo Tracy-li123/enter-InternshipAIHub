@@ -1,0 +1,5 @@
+
+-- 删除所有虚假岗位（18:02分批量生成的）
+DELETE FROM jobs 
+WHERE created_at >= '2026-03-22 18:02:00' 
+AND created_at <= '2026-03-22 18:03:00';
