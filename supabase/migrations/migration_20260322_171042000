@@ -1,0 +1,3 @@
+
+-- 删除之前抓取不完整的字节跳动岗位
+DELETE FROM jobs WHERE title = '校园招聘' AND company = '字节跳动';
