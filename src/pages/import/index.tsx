@@ -168,36 +168,54 @@ export default function ImportPage() {
     setImporting(true);
     let successCount = 0;
     let failCount = 0;
+    const failedJobs: string[] = [];
 
     try {
       const selectedResults = Array.from(selectedJobs).map(index => searchResults[index]);
 
       for (const job of selectedResults) {
         try {
+          // 验证URL格式
+          if (!job.url || !job.url.startsWith('http')) {
+            console.warn('无效的URL:', job.url);
+            failCount++;
+            failedJobs.push(job.title);
+            continue;
+          }
+
           const { data, error } = await supabase.functions.invoke('import-job-from-url', {
             body: { url: job.url },
           });
 
-          if (error) throw error;
+          if (error) {
+            console.error('导入失败:', job.title, error);
+            failCount++;
+            failedJobs.push(job.title);
+            continue;
+          }
 
           if (data.success) {
             successCount++;
           } else {
             failCount++;
+            failedJobs.push(job.title);
           }
-        } catch {
+        } catch (err) {
+          console.error('导入异常:', job.title, err);
           failCount++;
+          failedJobs.push(job.title);
         }
       }
 
       if (successCount > 0) {
         toast.success(`✨ 成功导入 ${successCount} 个岗位`);
         if (failCount > 0) {
-          toast.warning(`${failCount} 个岗位导入失败`);
+          toast.warning(`${failCount} 个岗位导入失败，可能链接无效或无法访问`);
+          console.log('失败的岗位:', failedJobs);
         }
         navigate('/');
       } else {
-        toast.error('所有岗位导入失败，请尝试手动添加');
+        toast.error(`所有岗位导入失败。\n\n可能原因：\n1. AI返回的链接无法访问\n2. 网站有反爬虫机制\n\n建议：使用"手动添加"功能`);
       }
     } catch (err) {
       toast.error('批量导入失败');
@@ -318,47 +336,64 @@ export default function ImportPage() {
                       </span>
                     </div>
 
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950 p-3">
+                      <p className="text-sm text-amber-800 dark:text-amber-200">
+                        💡 <strong>提示</strong>：AI搜索的链接可能无法直接访问，导入失败属于正常情况。
+                        如果批量导入失败，建议使用"手动添加"功能。
+                      </p>
+                    </div>
+
                     <div className="space-y-3 max-h-96 overflow-y-auto">
-                      {searchResults.map((job, index) => (
-                        <Card
-                          key={index}
-                          className={`cursor-pointer transition-all ${
-                            selectedJobs.has(index)
-                              ? 'border-green-500 bg-green-50 dark:bg-green-950'
-                              : 'hover:border-primary'
-                          }`}
-                          onClick={() => toggleJobSelection(index)}
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-3">
-                              <Checkbox
-                                checked={selectedJobs.has(index)}
-                                onCheckedChange={() => toggleJobSelection(index)}
-                                className="mt-1"
-                              />
-                              <div className="flex-1">
-                                <h4 className="font-semibold text-base mb-1">{job.title}</h4>
-                                {job.location && (
-                                  <p className="text-sm text-muted-foreground mb-2">
-                                    📍 {job.location}
+                      {searchResults.map((job, index) => {
+                        const isValidUrl = job.url && job.url.startsWith('http');
+                        return (
+                          <Card
+                            key={index}
+                            className={`cursor-pointer transition-all ${
+                              selectedJobs.has(index)
+                                ? 'border-green-500 bg-green-50 dark:bg-green-950'
+                                : 'hover:border-primary'
+                            } ${!isValidUrl ? 'border-amber-300' : ''}`}
+                            onClick={() => toggleJobSelection(index)}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-start gap-3">
+                                <Checkbox
+                                  checked={selectedJobs.has(index)}
+                                  onCheckedChange={() => toggleJobSelection(index)}
+                                  className="mt-1"
+                                />
+                                <div className="flex-1">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <h4 className="font-semibold text-base mb-1">{job.title}</h4>
+                                    {!isValidUrl && (
+                                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">
+                                        链接可能无效
+                                      </span>
+                                    )}
+                                  </div>
+                                  {job.location && (
+                                    <p className="text-sm text-muted-foreground mb-2">
+                                      📍 {job.location}
+                                    </p>
+                                  )}
+                                  {job.description && (
+                                    <p className="text-sm text-muted-foreground line-clamp-2">
+                                      {job.description}
+                                    </p>
+                                  )}
+                                  <p className="text-xs text-muted-foreground mt-2 truncate">
+                                    🔗 {job.url || '无链接'}
                                   </p>
+                                </div>
+                                {selectedJobs.has(index) && (
+                                  <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
                                 )}
-                                {job.description && (
-                                  <p className="text-sm text-muted-foreground line-clamp-2">
-                                    {job.description}
-                                  </p>
-                                )}
-                                <p className="text-xs text-muted-foreground mt-2 truncate">
-                                  🔗 {job.url}
-                                </p>
                               </div>
-                              {selectedJobs.has(index) && (
-                                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
 
                     <Button

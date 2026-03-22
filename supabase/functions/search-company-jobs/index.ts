@@ -42,22 +42,30 @@ serve(async (req) => {
             role: "user",
             content: `请帮我搜索"${company}"公司最新的"${jobType}"岗位。
 
-要求：
-1. 搜索该公司官方招聘网站或主流招聘平台
-2. 只返回${jobType}相关的岗位
-3. 每个岗位提取：岗位名称、工作地点、岗位链接、简短描述（1-2句话）
-4. 返回3-5个最相关的岗位
-5. 以JSON数组格式返回，不要其他文字
+**重要要求**：
+1. 必须联网搜索真实的招聘信息
+2. 返回的链接必须是可以直接访问的真实URL（完整的https://开头的链接）
+3. 优先搜索：
+   - ${company}公司官方招聘网站（如 jobs.bytedance.com）
+   - 主流招聘平台（拉勾网、智联招聘、BOSS直聘等）
+4. 只返回${jobType}相关的岗位
+5. 每个岗位必须包含：岗位名称、工作地点、完整的岗位详情链接、简短描述
 
-返回格式（不要markdown代码块）：
+返回格式（纯JSON，不要markdown代码块）：
 [
   {
-    "title": "岗位名称",
-    "location": "工作地点",
-    "url": "岗位详情链接",
-    "description": "简短描述"
+    "title": "具体岗位名称",
+    "location": "城市名称",
+    "url": "完整的https://链接",
+    "description": "岗位职责和要求的简短描述"
   }
-]`,
+]
+
+**注意**：url字段必须是真实可访问的完整链接，例如：
+- https://jobs.bytedance.com/campus/position/7612481443608709381/detail
+- https://www.lagou.com/jobs/12345678.html
+
+如果找不到真实链接，请返回空数组 []`,
           },
         ],
         stream: false,
