@@ -171,8 +171,8 @@ export default function ImportPage() {
                   岗位链接
                 </CardTitle>
                 <CardDescription>
-                  从拉勾网、智联招聘等招聘网站复制岗位详情页链接<br/>
-                  <span className="text-orange-600 font-medium">⚠️ 字节跳动、BOSS直聘等网站暂不支持自动抓取，请使用"手动添加"</span>
+                  ✨ 使用Kimi AI模型智能解析岗位信息，支持所有招聘网站<br/>
+                  <span className="text-primary font-medium">包括字节跳动、BOSS直聘、拉勾网、智联招聘等</span>
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -187,7 +187,7 @@ export default function ImportPage() {
                     className="text-base"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    ⚠️ 字节跳动、BOSS直聘等使用动态加载，暂不支持链接导入，请切换到"手动添加"标签
+                    💡 AI智能解析，自动提取岗位标题、公司、地点和职位描述
                   </p>
                 </div>
 
@@ -342,43 +342,41 @@ export default function ImportPage() {
         {/* 支持的网站 */}
         <Card>
           <CardHeader>
-            <CardTitle>✅ 支持的招聘网站</CardTitle>
-            <CardDescription>以下网站的岗位链接可以直接导入（链接导入）</CardDescription>
+            <CardTitle>✨ AI智能解析 - 支持所有招聘网站</CardTitle>
+            <CardDescription>使用Kimi AI模型分析网页内容，自动提取岗位信息</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {[
-                { name: '拉勾网', domain: 'lagou.com', supported: true },
-                { name: '智联招聘', domain: 'zhaopin.com', supported: true },
-                { name: '前程无忧', domain: '51job.com', supported: true },
-                { name: '字节跳动', domain: 'bytedance.com', supported: false, note: '请手动添加' },
-                { name: 'BOSS直聘', domain: 'zhipin.com', supported: false, note: '请手动添加' },
-                { name: '腾讯招聘', domain: 'tencent.com', supported: false, note: '请手动添加' },
+                { name: '字节跳动', domain: 'bytedance.com' },
+                { name: 'BOSS直聘', domain: 'zhipin.com' },
+                { name: '拉勾网', domain: 'lagou.com' },
+                { name: '智联招聘', domain: 'zhaopin.com' },
+                { name: '腾讯招聘', domain: 'tencent.com' },
+                { name: '阿里招聘', domain: 'alibaba.com' },
               ].map((site, index) => (
                 <div
                   key={index}
-                  className={`flex flex-col gap-1 p-3 rounded-lg transition-colors ${
-                    site.supported 
-                      ? 'bg-green-50 hover:bg-green-100' 
-                      : 'bg-gray-50 hover:bg-gray-100'
-                  }`}
+                  className="flex flex-col gap-1 p-3 rounded-lg transition-colors bg-green-50 hover:bg-green-100"
                 >
                   <div className="flex items-center gap-2">
-                    {site.supported ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 text-orange-500 flex-shrink-0" />
-                    )}
+                    <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
                     <span className="font-medium text-sm">{site.name}</span>
                   </div>
                   {site.domain && (
                     <span className="text-xs text-gray-500 ml-6">{site.domain}</span>
                   )}
-                  {site.note && (
-                    <span className="text-xs text-orange-600 ml-6">{site.note}</span>
-                  )}
                 </div>
               ))}
+            </div>
+            
+            <div className="mt-4 p-3 bg-primary/5 rounded-md border border-primary/20">
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-primary" />
+                <span>
+                  <strong className="text-foreground">智能突破限制：</strong>即使网站使用JavaScript动态加载或反爬虫技术，AI模型也能理解并提取岗位信息
+                </span>
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -412,7 +410,7 @@ export default function ImportPage() {
                 <span className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold text-xs">
                   ✓
                 </span>
-                <span>系统自动抓取岗位信息并保存，导入完成！</span>
+                <span>AI智能分析网页内容，自动提取岗位信息并保存，导入完成！</span>
               </li>
             </ol>
           </CardContent>
