@@ -17,32 +17,6 @@ interface SearchResult {
   description?: string;
 }
 
-const URL_COMPANY_MAP: Record<string, string> = {
-  'bytedance.com': '字节跳动',
-  'feishu.cn': '字节跳动',
-  'meituan.com': '美团',
-  'tencent.com': '腾讯',
-  'qq.com': '腾讯',
-  'alibaba.com': '阿里巴巴',
-  'alipay.com': '蚂蚁集团',
-  'kuaishou.com': '快手',
-  'bilibili.com': 'bilibili',
-  'baidu.com': '百度',
-  'jd.com': '京东',
-  'xiaohongshu.com': '小红书',
-  'didi.com': '滴滴',
-};
-
-function detectCompanyFromUrl(url: string): string {
-  try {
-    const hostname = new URL(url).hostname.replace('www.', '');
-    for (const [domain, company] of Object.entries(URL_COMPANY_MAP)) {
-      if (hostname.includes(domain)) return company;
-    }
-  } catch { /* ignore */ }
-  return '';
-}
-
 export default function ImportPage() {
   const navigate = useNavigate();
   
@@ -88,21 +62,10 @@ export default function ImportPage() {
       if (error) throw error;
 
       if (data.success) {
-        if (data.isDuplicate) {
-          toast.info('该岗位已在你的列表中');
-        } else {
-          toast.success('岗位导入成功！');
-        }
+        toast.success(data.message);
         navigate('/');
       } else if (data.needManualInput) {
         setError(data.error);
-        // Pre-fill manual form with known data
-        const detectedCompany = detectCompanyFromUrl(url.trim());
-        setManualForm(prev => ({
-          ...prev,
-          sourceUrl: url.trim(),
-          company: detectedCompany || prev.company,
-        }));
         setActiveTab('manual');
       } else {
         setError(data.error || '导入失败');
