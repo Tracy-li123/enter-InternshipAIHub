@@ -22,10 +22,14 @@ Deno.serve(async (req) => {
     console.log("searching:", company, jobType);
 
     const TAVILY_API_KEY = Deno.env.get("TAVILY_API_KEY");
+    console.log("TAVILY_API_KEY exists:", !!TAVILY_API_KEY);
+    console.log("TAVILY_API_KEY prefix:", TAVILY_API_KEY ? TAVILY_API_KEY.substring(0, 8) : "none");
+
     if (!TAVILY_API_KEY) throw new Error("Tavily API Key not configured");
 
-    // Step 1: Tavily search
-    const searchQuery = company + " " + jobType + " jobs hiring";
+    const searchQuery = company + " " + jobType + " 招聘 岗位";
+    console.log("search query:", searchQuery);
+
     const tavilyResponse = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: {
@@ -41,14 +45,16 @@ Deno.serve(async (req) => {
       }),
     });
 
+    console.log("Tavily status:", tavilyResponse.status);
+
     if (!tavilyResponse.ok) {
       const errorText = await tavilyResponse.text();
       console.error("Tavily failed:", errorText);
-      throw new Error("search service unavailable");
+      throw new Error("search service unavailable: " + tavilyResponse.status);
     }
 
     const tavilyData = await tavilyResponse.json();
-    console.log("Tavily results:", tavilyData.results ? tavilyData.results.length : 0);
+    console.log("Tavily results count:", tavilyData.results ? tavilyData.results.length : 0);
 
     if (!tavilyData.results || tavilyData.results.length === 0) {
       return new Response(
@@ -57,7 +63,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 2: AI analysis - OpenAI Chat Completions protocol
     const AI_API_TOKEN = Deno.env.get("AI_API_TOKEN_62325baf28c7");
     if (!AI_API_TOKEN) throw new Error("AI token not configured");
 
@@ -65,7 +70,7 @@ Deno.serve(async (req) => {
       .map((r: any, i: number) => (i + 1) + ". title: " + r.title + "\n   url: " + r.url + "\n   summary: " + r.content + "\n")
       .join("\n");
 
-    console.log("calling AI via openai chat completions...");
+    console.log("calling AI...");
 
     const aiResponse = await fetch("https://api.enter.pro/code/api/v1/ai/chat/completions", {
       method: "POST",
@@ -82,7 +87,7 @@ Deno.serve(async (req) => {
           },
           {
             role: "user",
-            content: "From these search results for company '" + company + "' looking for '" + jobType + "' positions, extract relevant job listings.\n\nSearch results:\n" + searchResultsText + "\n\nRules:\n1. Only include results directly related to " + company + " and " + jobType + " jobs\n2. MUST use the original URLs from search results, do not modify or create URLs\n3. Return max 5 most relevant jobs\n4. Return only JSON array, no markdown\n\nFormat:\n[{\"title\":\"job title\",\"location\":\"city or unknown\",\"url\":\"original url from search results\",\"description\":\"1-2 sentence description\"}]\n\nIf no relevant jobs found, return []",
+            content: "From these search results for company '" + company + "' and job type '" + jobType + "', extract relevant job listings.\n\nSearch results:\n" + searchResultsText + "\n\nRules:\n1. Only include results related to " + company + " and " + jobType + " jobs\n2. Use the ORIGINAL URLs from search results only\n3. Return max 5 most relevant jobs\n4. Return only JSON array\n\nFormat:\n[{\"title\":\"job title\",\"location\":\"city or unknown\",\"url\":\"original url\",\"description\":\"brief description\"}]\n\nIf no relevant jobs, return []",
           },
         ],
         stream: false,
@@ -92,7 +97,7 @@ Deno.serve(async (req) => {
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("AI failed:", errorText.substring(0, 300));
+      console.error("AI failed:", errorText.substring(0, 200));
       throw new Error("AI analysis failed");
     }
 
@@ -100,7 +105,7 @@ Deno.serve(async (req) => {
     const aiText = (aiResult.choices && aiResult.choices[0] && aiResult.choices[0].message)
       ? aiResult.choices[0].message.content
       : "";
-    console.log("AI result preview:", aiText.substring(0, 300));
+    console.log("AI result:", aiText.substring(0, 200));
 
     let jobs: any[];
     try {
@@ -113,15 +118,13 @@ Deno.serve(async (req) => {
     const validJobs = jobs.filter((j: any) => j.url && j.url.startsWith("http") && j.title);
     console.log("valid jobs:", validJobs.length);
 
-    if (validJobs.length === 0) {
-      return new Response(
-        JSON.stringify({ success: false, error: "no relevant jobs found, try URL import or manual entry", jobs: [] }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     return new Response(
-      JSON.stringify({ success: true, message: "found " + validJobs.length + " jobs", jobs: validJobs }),
+      JSON.stringify({
+        success: validJobs.length > 0,
+        message: validJobs.length > 0 ? "found " + validJobs.length + " jobs" : "no relevant jobs found",
+        jobs: validJobs,
+        error: validJobs.length === 0 ? "no relevant jobs found, try URL import or manual entry" : undefined,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
