@@ -7,14 +7,126 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
-      [_ in never]: never
+      job_categories: {
+        Row: {
+          id: string
+          name: string
+          user_id: string
+          display_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          user_id?: string
+          display_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          user_id?: string
+          display_order?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      jobs: {
+        Row: {
+          id: string
+          title: string
+          company: string
+          description: string | null
+          source_url: string | null
+          location: string | null
+          category_id: string | null
+          published_at: string
+          scraped_at: string
+          deleted_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          company: string
+          description?: string | null
+          source_url?: string | null
+          location?: string | null
+          category_id?: string | null
+          published_at?: string
+          scraped_at?: string
+          deleted_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          company?: string
+          description?: string | null
+          source_url?: string | null
+          location?: string | null
+          category_id?: string | null
+          published_at?: string
+          scraped_at?: string
+          deleted_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "job_categories"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      user_job_status: {
+        Row: {
+          id: string
+          job_id: string
+          user_id: string
+          status: string
+          is_bookmarked: boolean
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          job_id: string
+          user_id?: string
+          status?: string
+          is_bookmarked?: boolean
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          job_id?: string
+          user_id?: string
+          status?: string
+          is_bookmarked?: boolean
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_job_status_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
