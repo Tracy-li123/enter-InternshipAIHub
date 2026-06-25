@@ -1,0 +1,58 @@
+-- 删除现有表
+DROP TABLE IF EXISTS user_job_status CASCADE;
+DROP TABLE IF EXISTS jobs CASCADE;
+DROP TABLE IF EXISTS job_categories CASCADE;
+
+-- 创建岗位分类表
+CREATE TABLE job_categories (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  user_id text NOT NULL DEFAULT 'default_user',
+  display_order integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE job_categories ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all" ON job_categories FOR ALL USING (true) WITH CHECK (true);
+
+-- 创建岗位表
+CREATE TABLE jobs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  company text NOT NULL,
+  description text,
+  source_url text,
+  location text,
+  category_id uuid REFERENCES job_categories(id) ON DELETE SET NULL,
+  published_at timestamptz NOT NULL DEFAULT now(),
+  scraped_at timestamptz NOT NULL DEFAULT now(),
+  deleted_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_jobs_category ON jobs(category_id);
+CREATE INDEX idx_jobs_deleted_at ON jobs(deleted_at);
+CREATE INDEX idx_jobs_published_at ON jobs(published_at DESC);
+ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all" ON jobs FOR ALL USING (true) WITH CHECK (true);
+
+-- 创建用户岗位状态表
+CREATE TABLE user_job_status (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id uuid NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  user_id text NOT NULL DEFAULT 'default_user',
+  status text NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending','applied','written_test','first_interview','second_interview','final_interview','offer','rejected')),
+  is_bookmarked boolean NOT NULL DEFAULT false,
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(job_id, user_id)
+);
+CREATE INDEX idx_user_job_status_user ON user_job_status(user_id);
+CREATE INDEX idx_user_job_status_bookmarked ON user_job_status(user_id, is_bookmarked) WHERE is_bookmarked = true;
+ALTER TABLE user_job_status ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all" ON user_job_status FOR ALL USING (true) WITH CHECK (true);
+
+-- 插入默认岗位分类
+INSERT INTO job_categories (name, display_order) VALUES
+  ('产品', 1),('运营', 2),('数据', 3),('算法', 4),
+  ('开发', 5),('设计', 6),('市场', 7),('其他', 8);

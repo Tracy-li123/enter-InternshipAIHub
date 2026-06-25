@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
@@ -7,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -24,9 +23,20 @@ serve(async (req) => {
 
     console.log("🔍 开始处理:", url);
 
+    // BOSS直聘特殊处理
+    if (url.includes('zhipin.com')) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "BOSS直聘有严格的反爬虫机制，暂时无法自动导入。\n\n请切换到"手动添加"标签，复制岗位信息手动录入。",
+          needManualInput: true,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // 步骤1: 使用Jina AI Reader获取页面内容
     console.log("📄 使用Jina AI Reader抓取内容...");
-    
     const jinaResponse = await fetch(`https://r.jina.ai/${url}`, {
       headers: {
         "Accept": "application/json",
@@ -36,49 +46,25 @@ serve(async (req) => {
     });
 
     if (!jinaResponse.ok) {
-      const errorText = await jinaResponse.text();
-      console.error("❌ Jina返回错误:", jinaResponse.status, errorText.substring(0, 200));
+      console.error("❌ Jina返回错误:", jinaResponse.status);
       throw new Error("无法访问该网页");
     }
 
     const jinaData = await jinaResponse.json();
     const content = jinaData.data?.content || jinaData.content || "";
-    
     console.log("✅ 获取内容成功，长度:", content.length);
-    console.log("📝 内容预览:", content.substring(0, 500));
 
-    // 检查是否是反爬虫页面
-    if (content.length < 100 || 
-        content.includes('正在加载') || 
-        content.includes('Please wait') ||
-        content.includes('验证码') ||
-        content.includes('Access Denied')) {
-      
-      // BOSS直聘特殊处理：提示用户手动添加
-      if (url.includes('zhipin.com')) {
-        console.log("⚠️ BOSS直聘反爬虫拦截");
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "BOSS直聘有严格的反爬虫机制，暂时无法自动导入。\n\n请切换到"手动添加"标签，复制岗位信息手动录入。",
-            needManualInput: true,
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      throw new Error("网页内容为空或被拦截");
+    if (content.length < 100) {
+      throw new Error("网页内容为空或被拦截，请尝试手动添加");
     }
 
-    // 步骤2: 使用AI分析内容
+    // 步骤2: 使用AI分析内容（使用正确的 OpenAI Chat Completions 协议）
     const AI_API_TOKEN = Deno.env.get("AI_API_TOKEN_62325baf28c7");
-    if (!AI_API_TOKEN) {
-      throw new Error("AI配置未找到");
-    }
+    if (!AI_API_TOKEN) throw new Error("AI配置未找到");
 
     console.log("🤖 使用AI提取岗位信息...");
 
-    const aiResponse = await fetch("https://api.enter.pro/code/api/v1/ai/messages", {
+    const aiResponse = await fetch("https://api.enter.pro/code/api/v1/ai/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${AI_API_TOKEN}`,
@@ -88,25 +74,16 @@ serve(async (req) => {
         model: "moonshotai/kimi-k2.5",
         messages: [
           {
+            role: "system",
+            content: "你是招聘信息提取专家。只返回JSON，不要其他文字，不要markdown代码块。",
+          },
+          {
             role: "user",
-            content: `你是招聘信息提取专家。请从以下内容中提取岗位信息。
+            content: `从以下内容中提取岗位信息，返回JSON格式：
+{"title":"岗位名称","company":"公司名称","location":"工作地点","description":"完整职位描述"}
 
 内容：
-${content.substring(0, 30000)}
-
-请提取以下信息并以JSON格式返回：
-1. title: 岗位名称（必须包含，如果是实习岗位要保留"实习"字样）
-2. company: 公司名称（必须包含）
-3. location: 工作地点（如：北京、上海等）
-4. description: 完整的职位描述（包括职责和要求，尽可能详细）
-
-要求：
-- 只返回JSON，不要其他文字
-- 不要使用markdown代码块
-- 如果找不到某个字段，用空字符串""
-
-返回格式：
-{"title":"","company":"","location":"","description":""}`,
+${content.substring(0, 20000)}`,
           },
         ],
         stream: false,
@@ -116,59 +93,34 @@ ${content.substring(0, 30000)}
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("❌ AI调用失败:", errorText.substring(0, 500));
-      throw new Error("AI分析失败");
+      console.error("❌ AI调用失败:", errorText.substring(0, 300));
+      throw new Error("AI分析失败，请稍后重试");
     }
 
     const aiResult = await aiResponse.json();
     console.log("✅ AI分析完成");
 
-    // 提取文本
-    let aiText = "";
-    if (aiResult.content && Array.isArray(aiResult.content)) {
-      const textBlock = aiResult.content.find((block: any) => block.type === "text");
-      if (textBlock) {
-        aiText = textBlock.text;
-      }
-    }
-
-    console.log("📋 AI返回内容:", aiText.substring(0, 300));
+    // 提取文本（OpenAI Chat Completions 响应格式）
+    const aiText = aiResult.choices?.[0]?.message?.content || "";
+    console.log("📋 AI返回:", aiText.substring(0, 300));
 
     // 解析JSON
     let jobInfo: any;
     try {
       jobInfo = JSON.parse(aiText);
-    } catch (e) {
+    } catch {
       const jsonMatch = aiText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        try {
-          jobInfo = JSON.parse(jsonMatch[0]);
-        } catch (e2) {
-          console.error("❌ JSON解析失败");
-          throw new Error("AI返回格式不正确");
-        }
+        jobInfo = JSON.parse(jsonMatch[0]);
       } else {
-        throw new Error("AI未返回JSON格式");
+        throw new Error("AI未能识别岗位信息，请尝试手动添加");
       }
     }
 
-    console.log("✅ 提取信息:", {
-      title: jobInfo.title?.substring(0, 50),
-      company: jobInfo.company,
-      location: jobInfo.location,
-      descLength: jobInfo.description?.length || 0,
-    });
-
-    // 验证必填字段
     if (!jobInfo.title || !jobInfo.company) {
-      console.error("❌ 缺少必填字段 - title:", jobInfo.title, "company:", jobInfo.company);
       return new Response(
-        JSON.stringify({
-          success: false,
-          error: "AI未能识别完整信息，请尝试手动添加",
-          needManualInput: true,
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: false, error: "AI未能识别完整信息，请尝试手动添加", needManualInput: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -186,12 +138,7 @@ ${content.substring(0, 30000)}
 
     if (existing) {
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: "该岗位已存在",
-          jobId: existing.id,
-          isDuplicate: true,
-        }),
+        JSON.stringify({ success: true, message: "该岗位已存在", jobId: existing.id, isDuplicate: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -216,29 +163,19 @@ ${content.substring(0, 30000)}
       .select()
       .single();
 
-    if (insertError) {
-      console.error("❌ 数据库插入失败:", insertError);
-      throw insertError;
-    }
+    if (insertError) throw insertError;
 
-    console.log("✅ 导入成功!");
+    console.log("✅ 导入成功:", newJob.title);
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: `✨ 成功导入《${jobInfo.title}》`,
-        job: newJob,
-      }),
+      JSON.stringify({ success: true, message: `✨ 成功导入《${jobInfo.title}》`, job: newJob }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error: any) {
     console.error("❌ 导入失败:", error.message);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message || "导入失败，请重试",
-      }),
+      JSON.stringify({ success: false, error: error.message || "导入失败，请重试" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
@@ -246,18 +183,19 @@ ${content.substring(0, 30000)}
 
 function matchCategory(title: string, categories: any[]) {
   const lower = title.toLowerCase();
-  
-  for (const cat of categories) {
-    if (lower.includes(cat.name.toLowerCase())) {
-      return cat.id;
+  const map: Record<string, string[]> = {
+    '产品': ['产品', 'product', 'pm'],
+    '运营': ['运营', '增长', 'operation'],
+    '数据': ['数据', 'data', '分析', '商业智能'],
+    '算法': ['算法', 'ai', '机器学习', '深度学习', 'nlp'],
+    '开发': ['开发', '工程', 'engineer', 'developer', '前端', '后端', 'java', 'python'],
+    '设计': ['设计', 'design', 'ui', 'ux'],
+    '市场': ['市场', '营销', 'marketing', '品牌', '公关'],
+  };
+  for (const [catName, keywords] of Object.entries(map)) {
+    if (keywords.some(k => lower.includes(k))) {
+      return categories.find((c: any) => c.name === catName)?.id;
     }
   }
-
-  if (lower.includes('产品')) return categories.find(c => c.name.includes('产品'))?.id;
-  if (lower.includes('运营')) return categories.find(c => c.name.includes('运营'))?.id;
-  if (lower.includes('数据')) return categories.find(c => c.name.includes('数据'))?.id;
-  if (lower.includes('算法')) return categories.find(c => c.name.includes('算法'))?.id;
-  if (lower.includes('开发') || lower.includes('工程')) return categories.find(c => c.name.includes('开发'))?.id;
-
-  return categories[0]?.id;
+  return categories.find((c: any) => c.name === '其他')?.id;
 }

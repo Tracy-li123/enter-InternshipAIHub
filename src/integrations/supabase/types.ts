@@ -7,74 +7,193 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
+      aimusic_generations: {
+        Row: {
+          audio_url: string | null
+          color: string
+          cover_url: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          lyrics_mode: string | null
+          mood: string
+          scene: string
+          status: string
+          tags_description: string | null
+          task_id: string | null
+          title: string | null
+          updated_at: string
+          wine: string
+        }
+        Insert: {
+          audio_url?: string | null
+          color: string
+          cover_url?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lyrics_mode?: string | null
+          mood: string
+          scene: string
+          status?: string
+          tags_description?: string | null
+          task_id?: string | null
+          title?: string | null
+          updated_at?: string
+          wine: string
+        }
+        Update: {
+          audio_url?: string | null
+          color?: string
+          cover_url?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lyrics_mode?: string | null
+          mood?: string
+          scene?: string
+          status?: string
+          tags_description?: string | null
+          task_id?: string | null
+          title?: string | null
+          updated_at?: string
+          wine?: string
+        }
+        Relationships: []
+      }
+      email_history: {
+        Row: {
+          created_at: string | null
+          id: string
+          original_content: string
+          polished_content: string | null
+          sent_at: string | null
+          status: string
+          subject: string
+          to_email: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          original_content: string
+          polished_content?: string | null
+          sent_at?: string | null
+          status?: string
+          subject: string
+          to_email: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          original_content?: string
+          polished_content?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          to_email?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      gmail_configs: {
+        Row: {
+          created_at: string | null
+          email_address: string | null
+          id: string
+          refresh_token: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email_address?: string | null
+          id?: string
+          refresh_token: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email_address?: string | null
+          id?: string
+          refresh_token?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       job_categories: {
         Row: {
+          created_at: string
+          display_order: number
           id: string
           name: string
           user_id: string
-          display_order: number
-          created_at: string
         }
         Insert: {
+          created_at?: string
+          display_order?: number
           id?: string
           name: string
           user_id?: string
-          display_order?: number
-          created_at?: string
         }
         Update: {
+          created_at?: string
+          display_order?: number
           id?: string
           name?: string
           user_id?: string
-          display_order?: number
-          created_at?: string
         }
         Relationships: []
       }
       jobs: {
         Row: {
-          id: string
-          title: string
-          company: string
-          description: string | null
-          source_url: string | null
-          location: string | null
           category_id: string | null
+          company: string
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          location: string | null
           published_at: string
           scraped_at: string
-          deleted_at: string | null
-          created_at: string
+          source_url: string | null
+          title: string
         }
         Insert: {
-          id?: string
-          title: string
-          company: string
-          description?: string | null
-          source_url?: string | null
-          location?: string | null
           category_id?: string | null
+          company: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          location?: string | null
           published_at?: string
           scraped_at?: string
-          deleted_at?: string | null
-          created_at?: string
+          source_url?: string | null
+          title: string
         }
         Update: {
-          id?: string
-          title?: string
-          company?: string
-          description?: string | null
-          source_url?: string | null
-          location?: string | null
           category_id?: string | null
+          company?: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          location?: string | null
           published_at?: string
           scraped_at?: string
-          deleted_at?: string | null
-          created_at?: string
+          source_url?: string | null
+          title?: string
         }
         Relationships: [
           {
@@ -83,39 +202,128 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "job_categories"
             referencedColumns: ["id"]
-          }
+          },
+        ]
+      }
+      mock_interview_sessions: {
+        Row: {
+          conversation_history: Json | null
+          created_at: string | null
+          feedback_summary: string | null
+          id: string
+          job_id: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          conversation_history?: Json | null
+          created_at?: string | null
+          feedback_summary?: string | null
+          id?: string
+          job_id: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          conversation_history?: Json | null
+          created_at?: string | null
+          feedback_summary?: string | null
+          id?: string
+          job_id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      pua_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          session_id: string
+          title: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          session_id: string
+          title?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          session_id?: string
+          title?: string | null
+        }
+        Relationships: []
+      }
+      pua_messages: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string
+          id: string
+          role: string
+          session_id: string
+          thinking: string | null
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          role: string
+          session_id: string
+          thinking?: string | null
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          role?: string
+          session_id?: string
+          thinking?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pua_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "pua_conversations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       user_job_status: {
         Row: {
-          id: string
-          job_id: string
-          user_id: string
-          status: string
-          is_bookmarked: boolean
-          notes: string | null
           created_at: string
+          id: string
+          is_bookmarked: boolean
+          job_id: string
+          notes: string | null
+          status: string
           updated_at: string
+          user_id: string
         }
         Insert: {
-          id?: string
-          job_id: string
-          user_id?: string
-          status?: string
-          is_bookmarked?: boolean
-          notes?: string | null
           created_at?: string
+          id?: string
+          is_bookmarked?: boolean
+          job_id: string
+          notes?: string | null
+          status?: string
           updated_at?: string
+          user_id?: string
         }
         Update: {
-          id?: string
-          job_id?: string
-          user_id?: string
-          status?: string
-          is_bookmarked?: boolean
-          notes?: string | null
           created_at?: string
+          id?: string
+          is_bookmarked?: boolean
+          job_id?: string
+          notes?: string | null
+          status?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -124,7 +332,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
     }
