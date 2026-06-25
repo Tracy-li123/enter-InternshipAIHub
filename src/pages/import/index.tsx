@@ -282,7 +282,7 @@ export default function ImportPage() {
                   智能搜索岗位
                 </CardTitle>
                 <CardDescription>
-                  使用Tavily搜索引擎查找真实的招聘信息
+                  直接在各公司官方校园招聘网站搜索岗位，支持字节跳动、腾讯、阿里等18家公司
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -338,8 +338,7 @@ export default function ImportPage() {
 
                     <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950 p-3">
                       <p className="text-sm text-blue-800 dark:text-blue-200">
-                        ✅ <strong>使用真实搜索引擎</strong>：通过Tavily搜索真实的招聘网页，
-                        确保链接可访问。建议搜索公司官网或主流招聘平台的岗位。
+                        <strong>来自官方招聘渠道</strong>：所有结果均直接从该公司的官方校园招聘网站获取，确保来源可靠。
                       </p>
                     </div>
 
