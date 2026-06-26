@@ -168,6 +168,7 @@ export type Database = {
           scraped_at: string
           source_url: string | null
           title: string
+          user_id: string | null
         }
         Insert: {
           category_id?: string | null
@@ -181,6 +182,7 @@ export type Database = {
           scraped_at?: string
           source_url?: string | null
           title: string
+          user_id?: string | null
         }
         Update: {
           category_id?: string | null
@@ -194,6 +196,7 @@ export type Database = {
           scraped_at?: string
           source_url?: string | null
           title?: string
+          user_id?: string | null
         }
         Relationships: [
           {

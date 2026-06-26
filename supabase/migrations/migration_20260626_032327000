@@ -1,0 +1,1 @@
+UPDATE job_categories SET user_id = 'efeea052-7ed6-4f99-a5aa-3bbf01a2de78' WHERE user_id = 'default_user';
