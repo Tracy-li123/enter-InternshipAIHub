@@ -1,0 +1,1 @@
+UPDATE jobs SET category_id = '853851a0-ed05-4088-9b8d-e00a4aba6de3' WHERE category_id IN ('0008e428-29ff-4e80-9708-06e19b1fb831','b3173c98-c41c-4881-accc-e6f804a64421','e950427a-58da-4167-a175-12292373a1ad','f8395cc4-e535-4b02-83c4-31f4e77429d6');

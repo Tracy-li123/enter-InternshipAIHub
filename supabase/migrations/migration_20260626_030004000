@@ -1,0 +1,1 @@
+INSERT INTO job_categories (name) VALUES (E'\u5546\u5206');

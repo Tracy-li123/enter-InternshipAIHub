@@ -6,9 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Fast direct fetch, fallback to Jina if blocked or content too short
 async function fetchPageContent(url: string): Promise<string> {
-  // Try direct fetch first (nearly instant for static pages)
   try {
     console.log("trying direct fetch...");
     const res = await fetch(url, {
@@ -27,7 +25,6 @@ async function fetchPageContent(url: string): Promise<string> {
         .replace(/<[^>]+>/g, " ")
         .replace(/\s+/g, " ")
         .trim();
-      // Require substantial content — JS-rendered pages typically return < 1500 chars of shell
       if (text.length > 1500) {
         console.log("direct fetch ok, length:", text.length);
         return text;
@@ -38,7 +35,6 @@ async function fetchPageContent(url: string): Promise<string> {
     console.log("direct fetch failed:", e.message);
   }
 
-  // Fallback: Jina AI Reader (renders JS pages properly)
   console.log("falling back to Jina...");
   const jinaRes = await fetch("https://r.jina.ai/" + url, {
     headers: { "Accept": "application/json", "X-Return-Format": "markdown", "X-Timeout": "15" },
@@ -71,7 +67,7 @@ Deno.serve(async (req) => {
 
     if (url.includes("zhipin.com")) {
       return new Response(
-        JSON.stringify({ success: false, error: "BOSS直聘无法抓取，请使用手动添加", needManualInput: true }),
+        JSON.stringify({ success: false, error: "BOSS zhipin cannot be scraped, please use manual entry", needManualInput: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -84,7 +80,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Parallel: fetch page content + check duplicate + load categories
     const [content, existingResult, categoriesResult] = await Promise.all([
       fetchPageContent(url),
       supabase.from("jobs").select("id").eq("source_url", url).maybeSingle(),
@@ -93,18 +88,15 @@ Deno.serve(async (req) => {
 
     if (existingResult.data) {
       return new Response(
-        JSON.stringify({ success: true, message: "岗位已存在", jobId: existingResult.data.id, isDuplicate: true }),
+        JSON.stringify({ success: true, message: "job already exists", jobId: existingResult.data.id, isDuplicate: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Only send first 5000 chars — enough for any job listing
     const trimmedContent = content.slice(0, 5000);
     console.log("content trimmed to:", trimmedContent.length, "chars");
 
-    // AI extraction using Qwen 3.6 Plus (fast + low cost)
     console.log("calling Qwen for extraction...");
-
     const aiResponse = await fetch("https://api.enter.pro/code/api/v1/ai/chat/completions", {
       method: "POST",
       headers: {
@@ -116,11 +108,11 @@ Deno.serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "你是招聘信息提取助手。只返回JSON，不要markdown，不要其他文字。",
+            content: "You are a job info extractor. Return only JSON, no markdown, no extra text.",
           },
           {
             role: "user",
-            content: "从以下网页内容中提取岗位信息，返回格式：{\"title\":\"具体岗位名称（不要公司名）\",\"company\":\"公司名称\",\"location\":\"工作城市\",\"description\":\"岗位描述\"}\n\n内容：\n" + trimmedContent,
+            content: "Extract job info from the content below. Return exactly this JSON: {\"title\":\"specific job title only (no company name)\",\"company\":\"company name\",\"location\":\"city\",\"description\":\"job description\"}\n\nContent:\n" + trimmedContent,
           },
         ],
         stream: false,
@@ -131,7 +123,7 @@ Deno.serve(async (req) => {
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
       console.error("AI call failed:", errorText.slice(0, 300));
-      throw new Error("AI分析失败");
+      throw new Error("AI analysis failed");
     }
 
     const aiResult = await aiResponse.json();
@@ -140,7 +132,6 @@ Deno.serve(async (req) => {
       : "";
     console.log("AI text preview:", aiText.slice(0, 200));
 
-    // Parse JSON
     let jobInfo: any;
     try {
       jobInfo = JSON.parse(aiText);
@@ -153,12 +144,11 @@ Deno.serve(async (req) => {
 
     if (!jobInfo || !jobInfo.title || !jobInfo.company) {
       return new Response(
-        JSON.stringify({ success: false, error: "AI无法提取岗位信息，请使用手动添加", needManualInput: true }),
+        JSON.stringify({ success: false, error: "AI could not extract job info, please use manual entry", needManualInput: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Save to database
     const categories = categoriesResult.data || [];
     const categoryId = matchCategory(jobInfo.title, categories);
 
@@ -167,7 +157,7 @@ Deno.serve(async (req) => {
       .insert({
         title: jobInfo.title.trim(),
         company: jobInfo.company.trim(),
-        location: (jobInfo.location || "").trim() || "未知",
+        location: (jobInfo.location || "").trim() || "unknown",
         description: (jobInfo.description || "").trim(),
         source_url: url,
         category_id: categoryId,
@@ -181,14 +171,14 @@ Deno.serve(async (req) => {
 
     console.log("import success:", newJob.title);
     return new Response(
-      JSON.stringify({ success: true, message: "导入成功：" + jobInfo.title, job: newJob }),
+      JSON.stringify({ success: true, message: "imported: " + jobInfo.title, job: newJob }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error: any) {
     console.error("import failed:", error.message);
     return new Response(
-      JSON.stringify({ success: false, error: error.message || "导入失败，请重试" }),
+      JSON.stringify({ success: false, error: error.message || "import failed" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
@@ -196,22 +186,17 @@ Deno.serve(async (req) => {
 
 function matchCategory(title: string, categories: any[]) {
   const lower = title.toLowerCase();
-  const cnKeyMap: Record<string, string[]> = {
-    "产品": ["产品"], "运营": ["运营", "增长"], 
-    "市场": ["市场", "营销"],
+  const keyMap: Record<string, string[]> = {
+    "\u4ea7\u54c1": ["\u4ea7\u54c1", "product", "pm"],
+    "\u8fd0\u8425": ["\u8fd0\u8425", "\u589e\u957f", "operations", "growth"],
+    "\u5e02\u573a": ["\u5e02\u573a", "\u8425\u9500", "marketing", "brand", "\u516c\u5173"],
+    "\u6218\u7565": ["\u6218\u7565", "\u6218\u89c4", "strategy", "strategic"],
+    "\u5546\u5206": ["\u5546\u5206", "\u5546\u4e1a\u5206\u6790", "\u4e1a\u52a1\u5206\u6790", "\u6570\u636e\u5206\u6790", "business analyst", "analytics", "analyst"],
   };
-  const enKeyMap: Record<string, string[]> = {
-    "产品": ["product", "pm"], "运营": ["operations", "growth"], "市场": ["marketing", "brand"],
-  };
-  for (const [catName, keywords] of Object.entries(cnKeyMap)) {
-    if (keywords.some((k) => lower.includes(k))) {
+  for (const [catName, keywords] of Object.entries(keyMap)) {
+    if (keywords.some((k) => lower.includes(k.toLowerCase()))) {
       return categories.find((c: any) => c.name === catName)?.id;
     }
   }
-  for (const [catName, keywords] of Object.entries(enKeyMap)) {
-    if (keywords.some((k) => lower.includes(k))) {
-      return categories.find((c: any) => c.name === catName)?.id;
-    }
-  }
-  return categories.find((c: any) => c.name === "其他")?.id;
+  return categories.find((c: any) => c.name === "\u5176\u4ed6")?.id;
 }
