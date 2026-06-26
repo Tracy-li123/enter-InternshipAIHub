@@ -131,6 +131,59 @@ export type Database = {
         }
         Relationships: []
       }
+      group_members: {
+        Row: {
+          group_id: string
+          joined_at: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          joined_at?: string | null
+          role?: string
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          joined_at?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          invite_code: string | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          invite_code?: string | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          invite_code?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
       job_categories: {
         Row: {
           created_at: string
@@ -163,9 +216,11 @@ export type Database = {
           deleted_at: string | null
           description: string | null
           id: string
+          is_shared: boolean
           location: string | null
           published_at: string
           scraped_at: string
+          shared_to_group_id: string | null
           source_url: string | null
           title: string
           user_id: string | null
@@ -177,9 +232,11 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           id?: string
+          is_shared?: boolean
           location?: string | null
           published_at?: string
           scraped_at?: string
+          shared_to_group_id?: string | null
           source_url?: string | null
           title: string
           user_id?: string | null
@@ -191,9 +248,11 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           id?: string
+          is_shared?: boolean
           location?: string | null
           published_at?: string
           scraped_at?: string
+          shared_to_group_id?: string | null
           source_url?: string | null
           title?: string
           user_id?: string | null
@@ -204,6 +263,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "job_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_shared_to_group_id_fkey"
+            columns: ["shared_to_group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
             referencedColumns: ["id"]
           },
         ]

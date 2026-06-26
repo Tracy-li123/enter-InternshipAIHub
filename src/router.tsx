@@ -5,6 +5,7 @@ import Dashboard from "./pages/dashboard";
 import JobDetail from "./pages/job/[jobId]";
 import ImportPage from "./pages/import/index";
 import AuthPage from "./pages/auth/index";
+import GroupsPage from "./pages/groups/index";
 import { AuthGuard } from "./components/auth/AuthGuard";
 
 export const routers = [
@@ -37,6 +38,11 @@ export const routers = [
       path: "/import",
       name: 'import',
       element: <AuthGuard><ImportPage /></AuthGuard>,
+    },
+    {
+      path: "/groups",
+      name: 'groups',
+      element: <AuthGuard><GroupsPage /></AuthGuard>,
     },
     /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
     {
