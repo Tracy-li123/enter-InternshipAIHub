@@ -32,7 +32,7 @@ export default function AuthPage() {
         password: loginForm.password,
       });
       if (error) throw error;
-      navigate('/');
+      // Navigation handled by useEffect when user state updates
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '';
       toast.error(msg === 'Invalid login credentials' ? '邮箱或密码错误' : (msg || '登录失败'));
@@ -59,7 +59,8 @@ export default function AuthPage() {
         email: signupForm.email,
         password: signupForm.password,
       });
-      if (!loginError) navigate('/');
+      if (loginError) throw loginError;
+      // Navigation handled by useEffect when user state updates
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '';
       if (msg?.includes('already registered')) {

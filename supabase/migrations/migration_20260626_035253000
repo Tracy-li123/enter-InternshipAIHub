@@ -1,0 +1,19 @@
+-- Drop the circular RLS policy
+DROP POLICY IF EXISTS "members can view group members" ON group_members;
+
+-- Create SECURITY DEFINER function to check membership without RLS (avoids recursion)
+CREATE OR REPLACE FUNCTION is_group_member(group_uuid UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM group_members
+    WHERE group_id = group_uuid AND user_id = auth.uid()
+  );
+$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+
+-- Policy 1: users can always see their OWN membership rows (non-circular)
+CREATE POLICY "user can see own memberships" ON group_members
+  FOR SELECT USING (user_id = auth.uid());
+
+-- Policy 2: group members can see ALL members in their groups (uses SECURITY DEFINER fn)
+CREATE POLICY "group members see each other" ON group_members
+  FOR SELECT USING (is_group_member(group_id));

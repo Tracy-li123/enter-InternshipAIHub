@@ -43,20 +43,29 @@ export default function GroupsPage() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  // Fetch my groups
+  // Fetch my groups - two-step query to avoid RLS join issues
   const { data: groups = [], isLoading } = useQuery({
     queryKey: ['groups', user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Step 1: get my memberships
+      const { data: memberships, error: memberErr } = await supabase
         .from('group_members')
-        .select('group_id, role, groups(*)')
+        .select('group_id, role')
         .eq('user_id', user!.id);
-      if (error) throw error;
-      return (data as Array<{ group_id: string; role: string; groups: Group | null }>).map(m => ({
-        ...(m.groups as Group),
-        myRole: m.role,
-      }));
+      if (memberErr) throw memberErr;
+      if (!memberships || memberships.length === 0) return [];
+
+      // Step 2: get those groups
+      const groupIds = memberships.map(m => m.group_id);
+      const { data: groupData, error: groupErr } = await supabase
+        .from('groups')
+        .select('*')
+        .in('id', groupIds);
+      if (groupErr) throw groupErr;
+
+      const roleMap = Object.fromEntries(memberships.map(m => [m.group_id, m.role]));
+      return (groupData || []).map(g => ({ ...g, myRole: roleMap[g.id] || 'member' }));
     },
   });
 
@@ -78,16 +87,24 @@ export default function GroupsPage() {
   // Create group
   const createMutation = useMutation({
     mutationFn: async (name: string) => {
+      console.log('[groups] creating group, user:', user?.id);
+      
+      // Step 1: Insert group
       const { data: group, error: groupError } = await supabase
         .from('groups')
         .insert({ name, created_by: user!.id })
         .select()
         .single();
+      
+      console.log('[groups] insert result:', { group, groupError });
       if (groupError) throw groupError;
 
+      // Step 2: Add creator as owner member
       const { error: memberError } = await supabase
         .from('group_members')
         .insert({ group_id: group.id, user_id: user!.id, role: 'owner' });
+      
+      console.log('[groups] member insert error:', memberError);
       if (memberError) throw memberError;
 
       return group;
@@ -99,7 +116,10 @@ export default function GroupsPage() {
       setSelectedGroupId(group.id);
       toast.success('小组已创建！分享邀请码给小伙伴');
     },
-    onError: () => toast.error('创建失败，请重试'),
+    onError: (err: Error) => {
+      console.error('[groups] 创建小组失败:', err);
+      toast.error(`创建失败: ${err.message || '未知错误'}`);
+    },
   });
 
   // Join group
