@@ -289,7 +289,7 @@ export default function ImportPage() {
                   <div>
                     <label className="text-sm font-medium mb-2 block">岗位类型</label>
                     <Input
-                      placeholder="例如：实习、校招"
+                      placeholder="例如：产品、运营"
                       value={searchJobType}
                       onChange={(e) => setSearchJobType(e.target.value)}
                       disabled={searching}
