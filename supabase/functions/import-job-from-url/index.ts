@@ -197,14 +197,11 @@ Deno.serve(async (req) => {
 function matchCategory(title: string, categories: any[]) {
   const lower = title.toLowerCase();
   const cnKeyMap: Record<string, string[]> = {
-    "产品": ["产品"], "运营": ["运营", "增长"], "数据": ["数据", "分析"],
-    "算法": ["算法", "机器学习", "深度学习"], "开发": ["开发", "工程", "前端", "后端"],
-    "设计": ["设计"], "市场": ["市场", "营销"],
+    "产品": ["产品"], "运营": ["运营", "增长"], 
+    "市场": ["市场", "营销"],
   };
   const enKeyMap: Record<string, string[]> = {
-    "产品": ["product", "pm"], "运营": ["operations", "growth"], "数据": ["data", "analyst", "analytics"],
-    "算法": ["algorithm", "ai", "ml", "machine learning"], "开发": ["engineer", "developer", "frontend", "backend"],
-    "设计": ["design", "ui", "ux"], "市场": ["marketing", "brand"],
+    "产品": ["product", "pm"], "运营": ["operations", "growth"], "市场": ["marketing", "brand"],
   };
   for (const [catName, keywords] of Object.entries(cnKeyMap)) {
     if (keywords.some((k) => lower.includes(k))) {
