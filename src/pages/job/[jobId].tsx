@@ -13,7 +13,7 @@ import { formatRelativeTime } from '@/lib/date-utils';
 import { toast } from 'sonner';
 import { JobStatus } from '@/types/job';
 import { useDeleteJob, useRestoreJob, useToggleBookmark } from '@/hooks/use-jobs';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function JobDetail() {
   const { jobId } = useParams();

@@ -7,9 +7,9 @@ import { routers } from "./router";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 const queryClient = new QueryClient();
+const router = createBrowserRouter(routers);
 
 const App = () => {
-  const router = createBrowserRouter(routers);
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
