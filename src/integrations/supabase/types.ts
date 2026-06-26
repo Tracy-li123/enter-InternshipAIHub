@@ -410,6 +410,10 @@ export type Database = {
     }
     Functions: {
       is_group_member: { Args: { group_uuid: string }; Returns: boolean }
+      is_same_group_member: {
+        Args: { target_user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

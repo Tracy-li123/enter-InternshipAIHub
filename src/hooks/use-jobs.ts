@@ -4,7 +4,7 @@ import { Job, JobWithStatus, UserJobStatus, JobStatus } from '@/types/job';
 import { useAuth } from '@/hooks/use-auth';
 
 /**
- * 获取岗位列表（带用户状态）
+ * 获取岗位列表（带用户状态）— RLS 自动处理权限（本人 + 组内成员）
  */
 export function useJobs(categoryId?: string, excludeStatuses: JobStatus[] = []) {
   const { user } = useAuth();
@@ -12,6 +12,23 @@ export function useJobs(categoryId?: string, excludeStatuses: JobStatus[] = []) 
     queryKey: ['jobs', categoryId, excludeStatuses, user?.id],
     enabled: !!user,
     queryFn: async () => {
+      // 如果按分类筛选，先查出同名的所有分类ID（兼容组内不同用户的分类）
+      let categoryIds: string[] | undefined;
+      if (categoryId) {
+        const { data: cat } = await supabase
+          .from('job_categories')
+          .select('name')
+          .eq('id', categoryId)
+          .maybeSingle();
+        if (cat?.name) {
+          const { data: allCats } = await supabase
+            .from('job_categories')
+            .select('id')
+            .eq('name', cat.name);
+          categoryIds = allCats?.map(c => c.id);
+        }
+      }
+
       let query = supabase
         .from('jobs')
         .select(`
@@ -20,11 +37,10 @@ export function useJobs(categoryId?: string, excludeStatuses: JobStatus[] = []) 
           user_status:user_job_status(id, status, is_bookmarked, updated_at)
         `)
         .is('deleted_at', null)
-        .eq('user_id', user!.id)
         .order('published_at', { ascending: false });
 
-      if (categoryId) {
-        query = query.eq('category_id', categoryId);
+      if (categoryIds && categoryIds.length > 0) {
+        query = query.in('category_id', categoryIds);
       }
 
       const { data, error } = await query;

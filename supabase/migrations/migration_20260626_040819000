@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Allow all" ON job_categories;

@@ -1,0 +1,5 @@
+DROP POLICY IF EXISTS "Allow all" ON jobs;
+CREATE POLICY "jobs_select" ON jobs FOR SELECT USING (user_id = auth.uid() OR is_same_group_member(user_id));
+CREATE POLICY "jobs_insert" ON jobs FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "jobs_update" ON jobs FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY "jobs_delete" ON jobs FOR DELETE USING (user_id = auth.uid());

@@ -1,0 +1,4 @@
+CREATE POLICY "categories_select" ON job_categories FOR SELECT USING (user_id = auth.uid()::text OR is_same_group_member(user_id::uuid));
+CREATE POLICY "categories_insert" ON job_categories FOR INSERT WITH CHECK (user_id = auth.uid()::text);
+CREATE POLICY "categories_update" ON job_categories FOR UPDATE USING (user_id = auth.uid()::text);
+CREATE POLICY "categories_delete" ON job_categories FOR DELETE USING (user_id = auth.uid()::text);

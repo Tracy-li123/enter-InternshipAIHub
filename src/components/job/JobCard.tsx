@@ -4,8 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatRelativeTime } from '@/lib/date-utils';
 import { useUpdateJobStatus, useToggleBookmark, useDeleteJob } from '@/hooks/use-jobs';
+import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
-import { MapPin, ExternalLink, Bookmark, Check, Trash2 } from 'lucide-react';
+import { MapPin, ExternalLink, Bookmark, Check, Trash2, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -14,12 +15,14 @@ interface JobCardProps {
 }
 
 export function JobCard({ job }: JobCardProps) {
+  const { user } = useAuth();
   const updateStatus = useUpdateJobStatus();
   const toggleBookmark = useToggleBookmark();
   const deleteJob = useDeleteJob();
   const navigate = useNavigate();
   const isBookmarked = job.is_bookmarked || false;
   const isApplied = job.status !== 'pending';
+  const isOwner = job.user_id === user?.id;
 
   const handleBookmark = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -82,6 +85,12 @@ export function JobCard({ job }: JobCardProps) {
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
+              {!isOwner && (
+                <Badge variant="secondary" className="text-xs gap-1">
+                  <Users className="h-3 w-3" />
+                  共享
+                </Badge>
+              )}
               {job.category && (
                 <Badge variant="outline" className="text-xs">
                   {job.category.name}
@@ -99,14 +108,16 @@ export function JobCard({ job }: JobCardProps) {
           >
             <Bookmark className={cn('h-5 w-5', isBookmarked && 'fill-current')} />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleDelete}
-            className="text-destructive hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {isOwner && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleDelete}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </CardHeader>
 

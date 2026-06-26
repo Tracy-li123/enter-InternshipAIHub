@@ -1,0 +1,5 @@
+DROP POLICY IF EXISTS "Allow all" ON user_job_status;
+CREATE POLICY "status_select" ON user_job_status FOR SELECT USING (user_id = auth.uid()::text);
+CREATE POLICY "status_insert" ON user_job_status FOR INSERT WITH CHECK (user_id = auth.uid()::text);
+CREATE POLICY "status_update" ON user_job_status FOR UPDATE USING (user_id = auth.uid()::text);
+CREATE POLICY "status_delete" ON user_job_status FOR DELETE USING (user_id = auth.uid()::text);
