@@ -1,11 +1,21 @@
 import { ReactNode } from 'react';
 import { CollapsibleSidebar } from '@/components/sidebar/CollapsibleSidebar';
 import { Button } from '@/components/ui/button';
-import { Menu, Briefcase, LayoutDashboard } from 'lucide-react';
+import { Menu, Briefcase, LayoutDashboard, LogOut } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { JobStatus } from '@/types/job';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -37,6 +47,15 @@ export function MainLayout({
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success('已退出登录');
+    navigate('/auth');
+  };
+
+  const userInitial = (user?.user_metadata?.display_name || user?.email || '?')[0].toUpperCase();
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -76,15 +95,37 @@ export function MainLayout({
             </button>
           </div>
           
-          <Button
-            variant={location.pathname === '/dashboard' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => navigate('/dashboard')}
-            className="gap-2"
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            数据看板
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={location.pathname === '/dashboard' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => navigate('/dashboard')}
+              className="gap-2"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              数据看板
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Avatar className="h-8 w-8 cursor-pointer">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
+                    {userInitial}
+                  </AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <div className="px-2 py-1.5 text-sm text-muted-foreground truncate">
+                  {user?.email}
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive cursor-pointer">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  退出登录
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
 

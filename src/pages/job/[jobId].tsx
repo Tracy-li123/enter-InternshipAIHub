@@ -13,11 +13,13 @@ import { formatRelativeTime } from '@/lib/date-utils';
 import { toast } from 'sonner';
 import { JobStatus } from '@/types/job';
 import { useDeleteJob, useRestoreJob, useToggleBookmark } from '@/hooks/use-jobs';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function JobDetail() {
   const { jobId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [currentStatus, setCurrentStatus] = useState<JobStatus>('pending');
   const [isBookmarked, setIsBookmarked] = useState(false);
 
@@ -44,7 +46,7 @@ export default function JobDetail() {
         .from('user_job_status')
         .select('*')
         .eq('job_id', jobId)
-        .eq('user_id', 'default_user')
+        .eq('user_id', user?.id || '')
         .maybeSingle();
       
       if (error) throw error;
@@ -75,7 +77,7 @@ export default function JobDetail() {
           .from('user_job_status')
           .insert({
             job_id: jobId,
-            user_id: 'default_user',
+            user_id: user?.id || '',
             status,
           });
         if (error) throw error;

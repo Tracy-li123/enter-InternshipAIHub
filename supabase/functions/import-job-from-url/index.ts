@@ -6,6 +6,19 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Extract user ID from JWT token
+function getUserIdFromToken(req: Request): string | null {
+  try {
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.replace("Bearer ", "");
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.sub || null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchPageContent(url: string): Promise<string> {
   try {
     console.log("trying direct fetch...");
@@ -29,7 +42,7 @@ async function fetchPageContent(url: string): Promise<string> {
         console.log("direct fetch ok, length:", text.length);
         return text;
       }
-      console.log("direct fetch content too short (" + text.length + " chars), falling back to Jina");
+      console.log("direct fetch too short (" + text.length + " chars), falling back to Jina");
     }
   } catch (e: any) {
     console.log("direct fetch failed:", e.message);
@@ -63,7 +76,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("start processing:", url);
+    // Extract user ID from JWT
+    const userId = getUserIdFromToken(req);
+    console.log("user_id:", userId);
 
     if (url.includes("zhipin.com")) {
       return new Response(
@@ -150,7 +165,7 @@ Deno.serve(async (req) => {
     }
 
     const categories = categoriesResult.data || [];
-    const categoryId = matchCategory(jobInfo.title, categories);
+    const categoryId = matchCategory(jobInfo.title, categories, userId);
 
     const { data: newJob, error: insertError } = await supabase
       .from("jobs")
@@ -161,6 +176,7 @@ Deno.serve(async (req) => {
         description: (jobInfo.description || "").trim(),
         source_url: url,
         category_id: categoryId,
+        user_id: userId,
         published_at: new Date().toISOString(),
         scraped_at: new Date().toISOString(),
       })
@@ -169,7 +185,7 @@ Deno.serve(async (req) => {
 
     if (insertError) throw insertError;
 
-    console.log("import success:", newJob.title);
+    console.log("import success:", newJob.title, "user:", userId);
     return new Response(
       JSON.stringify({ success: true, message: "imported: " + jobInfo.title, job: newJob }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -184,7 +200,7 @@ Deno.serve(async (req) => {
   }
 });
 
-function matchCategory(title: string, categories: any[]) {
+function matchCategory(title: string, categories: any[], userId: string | null) {
   const lower = title.toLowerCase();
   const keyMap: Record<string, string[]> = {
     "\u4ea7\u54c1": ["\u4ea7\u54c1", "product", "pm"],
@@ -195,8 +211,15 @@ function matchCategory(title: string, categories: any[]) {
   };
   for (const [catName, keywords] of Object.entries(keyMap)) {
     if (keywords.some((k) => lower.includes(k.toLowerCase()))) {
-      return categories.find((c: any) => c.name === catName)?.id;
+      // Try to find user's category first, fall back to any matching category
+      const userCat = userId
+        ? categories.find((c: any) => c.name === catName && c.user_id === userId)
+        : null;
+      return (userCat || categories.find((c: any) => c.name === catName))?.id;
     }
   }
-  return categories.find((c: any) => c.name === "\u5176\u4ed6")?.id;
+  const userOther = userId
+    ? categories.find((c: any) => c.name === "\u5176\u4ed6" && c.user_id === userId)
+    : null;
+  return (userOther || categories.find((c: any) => c.name === "\u5176\u4ed6"))?.id;
 }
