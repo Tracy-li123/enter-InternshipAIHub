@@ -6,9 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Fast direct fetch, fallback to Jina if blocked
+// Fast direct fetch, fallback to Jina if blocked or content too short
 async function fetchPageContent(url: string): Promise<string> {
-  // Try direct fetch first (nearly instant)
+  // Try direct fetch first (nearly instant for static pages)
   try {
     console.log("trying direct fetch...");
     const res = await fetch(url, {
@@ -27,16 +27,18 @@ async function fetchPageContent(url: string): Promise<string> {
         .replace(/<[^>]+>/g, " ")
         .replace(/\s+/g, " ")
         .trim();
-      if (text.length > 200) {
+      // Require substantial content — JS-rendered pages typically return < 1500 chars of shell
+      if (text.length > 1500) {
         console.log("direct fetch ok, length:", text.length);
         return text;
       }
+      console.log("direct fetch content too short (" + text.length + " chars), falling back to Jina");
     }
   } catch (e: any) {
     console.log("direct fetch failed:", e.message);
   }
 
-  // Fallback: Jina AI Reader (handles JS-rendered pages)
+  // Fallback: Jina AI Reader (renders JS pages properly)
   console.log("falling back to Jina...");
   const jinaRes = await fetch("https://r.jina.ai/" + url, {
     headers: { "Accept": "application/json", "X-Return-Format": "markdown", "X-Timeout": "15" },
@@ -69,7 +71,7 @@ Deno.serve(async (req) => {
 
     if (url.includes("zhipin.com")) {
       return new Response(
-        JSON.stringify({ success: false, error: "BOSS zhipin cannot be scraped, please use manual entry", needManualInput: true }),
+        JSON.stringify({ success: false, error: "BOSS直聘无法抓取，请使用手动添加", needManualInput: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -91,17 +93,17 @@ Deno.serve(async (req) => {
 
     if (existingResult.data) {
       return new Response(
-        JSON.stringify({ success: true, message: "job already exists", jobId: existingResult.data.id, isDuplicate: true }),
+        JSON.stringify({ success: true, message: "岗位已存在", jobId: existingResult.data.id, isDuplicate: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Only send first 5000 chars — more than enough for any job listing
+    // Only send first 5000 chars — enough for any job listing
     const trimmedContent = content.slice(0, 5000);
     console.log("content trimmed to:", trimmedContent.length, "chars");
 
     // AI extraction using Qwen 3.6 Plus (fast + low cost)
-    console.log("calling Qwen 3.6 Plus for extraction...");
+    console.log("calling Qwen for extraction...");
 
     const aiResponse = await fetch("https://api.enter.pro/code/api/v1/ai/chat/completions", {
       method: "POST",
@@ -114,11 +116,11 @@ Deno.serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a job info extractor. Return only JSON, no markdown, no extra text.",
+            content: "你是招聘信息提取助手。只返回JSON，不要markdown，不要其他文字。",
           },
           {
             role: "user",
-            content: "Extract job info from the content below. Return exactly this JSON structure: {\"title\":\"job title\",\"company\":\"company name\",\"location\":\"city\",\"description\":\"full job description\"}\n\nContent:\n" + trimmedContent,
+            content: "从以下网页内容中提取岗位信息，返回格式：{\"title\":\"具体岗位名称（不要公司名）\",\"company\":\"公司名称\",\"location\":\"工作城市\",\"description\":\"岗位描述\"}\n\n内容：\n" + trimmedContent,
           },
         ],
         stream: false,
@@ -129,7 +131,7 @@ Deno.serve(async (req) => {
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
       console.error("AI call failed:", errorText.slice(0, 300));
-      throw new Error("AI analysis failed");
+      throw new Error("AI分析失败");
     }
 
     const aiResult = await aiResponse.json();
@@ -145,15 +147,13 @@ Deno.serve(async (req) => {
     } catch {
       const jsonMatch = aiText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        jobInfo = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("AI did not return valid JSON");
+        try { jobInfo = JSON.parse(jsonMatch[0]); } catch { jobInfo = null; }
       }
     }
 
-    if (!jobInfo.title || !jobInfo.company) {
+    if (!jobInfo || !jobInfo.title || !jobInfo.company) {
       return new Response(
-        JSON.stringify({ success: false, error: "AI could not extract job info, please use manual entry", needManualInput: true }),
+        JSON.stringify({ success: false, error: "AI无法提取岗位信息，请使用手动添加", needManualInput: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
       .insert({
         title: jobInfo.title.trim(),
         company: jobInfo.company.trim(),
-        location: (jobInfo.location || "").trim() || "unknown",
+        location: (jobInfo.location || "").trim() || "未知",
         description: (jobInfo.description || "").trim(),
         source_url: url,
         category_id: categoryId,
@@ -181,14 +181,14 @@ Deno.serve(async (req) => {
 
     console.log("import success:", newJob.title);
     return new Response(
-      JSON.stringify({ success: true, message: "imported: " + jobInfo.title, job: newJob }),
+      JSON.stringify({ success: true, message: "导入成功：" + jobInfo.title, job: newJob }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error: any) {
     console.error("import failed:", error.message);
     return new Response(
-      JSON.stringify({ success: false, error: error.message || "import failed" }),
+      JSON.stringify({ success: false, error: error.message || "导入失败，请重试" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

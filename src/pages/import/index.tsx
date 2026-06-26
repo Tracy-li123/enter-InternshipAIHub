@@ -158,7 +158,7 @@ export default function ImportPage() {
     }
   };
 
-  // 批量导入选中岗位
+  // 批量导入选中岗位（并行，最多3并发）
   const handleBatchImport = async () => {
     if (selectedJobs.size === 0) {
       toast.error('请至少选择一个岗位');
@@ -168,54 +168,44 @@ export default function ImportPage() {
     setImporting(true);
     let successCount = 0;
     let failCount = 0;
-    const failedJobs: string[] = [];
 
     try {
       const selectedResults = Array.from(selectedJobs).map(index => searchResults[index]);
 
-      for (const job of selectedResults) {
+      // 单个导入任务
+      const importOne = async (job: SearchResult) => {
+        if (!job.url || !job.url.startsWith('http')) {
+          return { ok: false, title: job.title };
+        }
         try {
-          // 验证URL格式
-          if (!job.url || !job.url.startsWith('http')) {
-            console.warn('无效的URL:', job.url);
-            failCount++;
-            failedJobs.push(job.title);
-            continue;
-          }
-
           const { data, error } = await supabase.functions.invoke('import-job-from-url', {
             body: { url: job.url },
           });
-
-          if (error) {
-            console.error('导入失败:', job.title, error);
-            failCount++;
-            failedJobs.push(job.title);
-            continue;
-          }
-
-          if (data.success) {
-            successCount++;
-          } else {
-            failCount++;
-            failedJobs.push(job.title);
-          }
-        } catch (err) {
-          console.error('导入异常:', job.title, err);
-          failCount++;
-          failedJobs.push(job.title);
+          if (error) return { ok: false, title: job.title };
+          return { ok: !!data?.success, title: job.title };
+        } catch {
+          return { ok: false, title: job.title };
         }
+      };
+
+      // 并行，每批最多3个同时进行
+      const CONCURRENCY = 3;
+      const results: { ok: boolean; title: string }[] = [];
+      for (let i = 0; i < selectedResults.length; i += CONCURRENCY) {
+        const chunk = selectedResults.slice(i, i + CONCURRENCY);
+        const chunkResults = await Promise.allSettled(chunk.map(importOne));
+        chunkResults.forEach(r => {
+          const val = r.status === 'fulfilled' ? r.value : { ok: false, title: '' };
+          results.push(val);
+          if (val.ok) successCount++; else failCount++;
+        });
       }
 
       if (successCount > 0) {
-        toast.success(`✨ 成功导入 ${successCount} 个岗位`);
-        if (failCount > 0) {
-          toast.warning(`${failCount} 个岗位导入失败，可能链接无效或无法访问`);
-          console.log('失败的岗位:', failedJobs);
-        }
+        toast.success(`成功导入 ${successCount} 个岗位${failCount > 0 ? `，${failCount} 个失败` : ''}`);
         navigate('/');
       } else {
-        toast.error(`所有岗位导入失败。\n\n可能原因：\n1. AI返回的链接无法访问\n2. 网站有反爬虫机制\n\n建议：使用"手动添加"功能`);
+        toast.error('所有岗位导入失败，链接可能无法访问，建议使用手动添加');
       }
     } catch (err) {
       toast.error('批量导入失败');
