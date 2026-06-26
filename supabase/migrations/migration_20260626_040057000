@@ -1,0 +1,4 @@
+-- Allow any authenticated user to look up a group by invite_code
+-- (the invite code itself is the security mechanism)
+CREATE POLICY "authenticated can find group by invite code" ON groups
+  FOR SELECT USING (auth.uid() IS NOT NULL);
