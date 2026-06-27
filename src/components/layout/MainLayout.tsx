@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { CollapsibleSidebar } from '@/components/sidebar/CollapsibleSidebar';
 import { Button } from '@/components/ui/button';
-import { Menu, Briefcase, LayoutDashboard, LogOut, Users } from 'lucide-react';
+import { Menu, Briefcase, LayoutDashboard, LogOut, Users, Home } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -96,6 +96,15 @@ export function MainLayout({
           </div>
           
           <div className="flex items-center gap-2">
+            <Button
+              variant={location.pathname === '/' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => navigate('/')}
+              className="gap-2"
+            >
+              <Home className="h-4 w-4" />
+              首页
+            </Button>
             <Button
               variant={location.pathname === '/groups' ? 'default' : 'ghost'}
               size="sm"
