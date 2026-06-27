@@ -1,24 +1,21 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const AI_API_TOKEN = Deno.env.get("AI_API_TOKEN_62325baf28c7");
-    if (!AI_API_TOKEN) {
-      throw new Error("AI_API_TOKEN is not configured");
+    const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
+    if (!DEEPSEEK_API_KEY) {
+      throw new Error("DeepSeek API key not configured");
     }
 
-    const { messages, model, jobDescription } = await req.json();
+    const { messages, jobDescription } = await req.json();
 
-    // 构建系统提示词
     const systemPrompt = `你是一位专业且友好的面试官，正在进行实习岗位的模拟面试。
 
 【岗位信息】
@@ -52,55 +49,34 @@ ${jobDescription}
 
 请现在开始面试，先做简短的自我介绍，然后提出第一个问题。`;
 
-    // 构建完整的消息列表
-    const fullMessages = [
-      { role: "user", content: systemPrompt },
-      ...messages,
-    ];
-
-    const response = await fetch("https://api.enter.pro/code/api/v1/ai/messages", {
+    const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${AI_API_TOKEN}`,
+        "Authorization": `Bearer ${DEEPSEEK_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: model || "anthropic/claude-sonnet-4.5",
-        messages: fullMessages,
+        model: "deepseek-reasoner",
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...messages,
+        ],
         stream: true,
-        max_tokens: 2000,
-        temperature: 0.7,
+        max_tokens: 4000,
       }),
     });
 
     if (!response.ok) {
-      // Parse upstream SSE error response
       const text = await response.text();
-      let errorMessage = "AI服务错误";
-      let errorCode = "api_error";
-      
-      const dataMatch = text.match(/data: (.+)/);
-      if (dataMatch) {
-        try {
-          const errorData = JSON.parse(dataMatch[1]);
-          errorMessage = errorData.error?.message || errorMessage;
-          errorCode = errorData.error?.type || errorCode;
-        } catch { /* use defaults */ }
-      }
-      
-      // Return error in SSE format to match frontend expectations
-      const errorSSE = `event: error\ndata: ${JSON.stringify({
-        type: "error",
-        error: { type: errorCode, message: errorMessage }
-      })}\n\n`;
-      
+      console.error("DeepSeek error:", text.slice(0, 300));
+      const errorSSE = `data: ${JSON.stringify({ type: "error", error: { type: "api_error", message: "AI服务错误" } })}\n\n`;
       return new Response(errorSSE, {
         status: response.status,
-        headers: { ...corsHeaders, "Content-Type": "text/event-stream" }
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
     }
 
-    // Stream SSE response to client
+    // Stream DeepSeek response directly (OpenAI-compatible SSE format)
     return new Response(response.body, {
       headers: {
         ...corsHeaders,
@@ -108,16 +84,11 @@ ${jobDescription}
         "Cache-Control": "no-cache",
       },
     });
-  } catch (error) {
-    // Return error in SSE format for consistency
-    const errorSSE = `event: error\ndata: ${JSON.stringify({
-      type: "error",
-      error: { type: "api_error", message: error.message }
-    })}\n\n`;
-    
+  } catch (error: any) {
+    const errorSSE = `data: ${JSON.stringify({ type: "error", error: { type: "api_error", message: error.message } })}\n\n`;
     return new Response(errorSSE, {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" }
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   }
 });

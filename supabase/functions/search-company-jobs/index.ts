@@ -4,8 +4,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// ─── Company → Official Campus Recruitment Mapping ────────────────────────────
-
 interface CampusSource {
   companyName: string;
   aliases: string[];
@@ -14,183 +12,60 @@ interface CampusSource {
 }
 
 const CAMPUS_SOURCES: CampusSource[] = [
-  {
-    companyName: "字节跳动",
-    aliases: ["字节", "bytedance", "ByteDance", "抖音"],
-    campusUrl: "https://jobs.bytedance.com/campus",
-    includeDomains: ["jobs.bytedance.com"],
-  },
-  {
-    companyName: "美团",
-    aliases: ["美团点评", "meituan", "Meituan"],
-    campusUrl: "https://zhaopin.meituan.com/web/campus",
-    includeDomains: ["zhaopin.meituan.com", "campus.meituan.com"],
-  },
-  {
-    companyName: "腾讯",
-    aliases: ["tencent", "Tencent", "腾讯公司"],
-    campusUrl: "https://join.qq.com/",
-    includeDomains: ["join.qq.com"],
-  },
-  {
-    companyName: "阿里巴巴",
-    aliases: ["阿里", "alibaba", "Alibaba", "淘宝", "天猫"],
-    campusUrl: "https://campus-talent.alibaba.com/",
-    includeDomains: ["campus-talent.alibaba.com", "talent.alibaba.com"],
-  },
-  {
-    companyName: "京东",
-    aliases: ["jd", "JD", "JD.com", "京东集团"],
-    campusUrl: "https://campus.jd.com/",
-    includeDomains: ["campus.jd.com"],
-  },
-  {
-    companyName: "小红书",
-    aliases: ["rednote", "REDnote", "xiaohongshu", "Xiaohongshu"],
-    campusUrl: "https://job.xiaohongshu.com/campus",
-    includeDomains: ["job.xiaohongshu.com"],
-  },
-  {
-    companyName: "快手",
-    aliases: ["kuaishou", "Kuaishou"],
-    campusUrl: "https://campus.kuaishou.cn/",
-    includeDomains: ["campus.kuaishou.cn"],
-  },
-  {
-    companyName: "网易",
-    aliases: ["网易集团", "netease", "NetEase"],
-    campusUrl: "https://campus.163.com/",
-    includeDomains: ["campus.163.com"],
-  },
-  {
-    companyName: "百度",
-    aliases: ["baidu", "Baidu", "百度集团"],
-    campusUrl: "https://talent.baidu.com/jobs/campus",
-    includeDomains: ["talent.baidu.com"],
-  },
-  {
-    companyName: "滴滴",
-    aliases: ["滴滴出行", "didi", "DiDi", "Didi"],
-    campusUrl: "https://campus.didiglobal.com/",
-    includeDomains: ["campus.didiglobal.com"],
-  },
-  {
-    companyName: "华为",
-    aliases: ["huawei", "Huawei", "华为技术"],
-    campusUrl: "https://career.huawei.com/cn/campus-recruitment",
-    includeDomains: ["career.huawei.com"],
-  },
-  {
-    companyName: "哔哩哔哩",
-    aliases: ["b站", "B站", "bilibili", "Bilibili"],
-    campusUrl: "https://jobs.bilibili.com/campus/",
-    includeDomains: ["jobs.bilibili.com"],
-  },
-  {
-    companyName: "蚂蚁集团",
-    aliases: ["蚂蚁", "蚂蚁金服", "ant group", "Ant Group"],
-    campusUrl: "https://talent.antgroup.com/campus",
-    includeDomains: ["talent.antgroup.com"],
-  },
-  {
-    companyName: "拼多多",
-    aliases: ["pdd", "PDD", "pinduoduo", "Pinduoduo"],
-    campusUrl: "https://careers.pddglobalhr.com/campus",
-    includeDomains: ["careers.pddglobalhr.com"],
-  },
-  {
-    companyName: "商汤科技",
-    aliases: ["商汤", "sensetime", "SenseTime"],
-    campusUrl: "https://hr.sensetime.com/SU62e109640dcad44de6f28a87/mc/position/campus",
-    includeDomains: ["hr.sensetime.com"],
-  },
-  {
-    companyName: "微软",
-    aliases: ["microsoft", "Microsoft", "MSFT"],
-    campusUrl: "https://careers.microsoft.com/students/us/en/chinastudentjob",
-    includeDomains: ["careers.microsoft.com"],
-  },
-  {
-    companyName: "谷歌",
-    aliases: ["google", "Google", "谷歌中国"],
-    campusUrl: "https://careers.google.com/students/",
-    includeDomains: ["careers.google.com"],
-  },
-  {
-    companyName: "苹果",
-    aliases: ["apple", "Apple"],
-    campusUrl: "https://www.apple.com/careers/cn/students.html",
-    includeDomains: ["www.apple.com"],
-  },
+  { companyName: "字节跳动", aliases: ["字节", "bytedance", "ByteDance", "抖音"], campusUrl: "https://jobs.bytedance.com/campus", includeDomains: ["jobs.bytedance.com"] },
+  { companyName: "美团", aliases: ["美团点评", "meituan", "Meituan"], campusUrl: "https://zhaopin.meituan.com/web/campus", includeDomains: ["zhaopin.meituan.com", "campus.meituan.com"] },
+  { companyName: "腾讯", aliases: ["tencent", "Tencent", "腾讯公司"], campusUrl: "https://join.qq.com/", includeDomains: ["join.qq.com"] },
+  { companyName: "阿里巴巴", aliases: ["阿里", "alibaba", "Alibaba", "淘宝", "天猫"], campusUrl: "https://campus-talent.alibaba.com/", includeDomains: ["campus-talent.alibaba.com", "talent.alibaba.com"] },
+  { companyName: "京东", aliases: ["jd", "JD", "JD.com", "京东集团"], campusUrl: "https://campus.jd.com/", includeDomains: ["campus.jd.com"] },
+  { companyName: "小红书", aliases: ["rednote", "REDnote", "xiaohongshu", "Xiaohongshu"], campusUrl: "https://job.xiaohongshu.com/campus", includeDomains: ["job.xiaohongshu.com"] },
+  { companyName: "快手", aliases: ["kuaishou", "Kuaishou"], campusUrl: "https://campus.kuaishou.cn/", includeDomains: ["campus.kuaishou.cn"] },
+  { companyName: "网易", aliases: ["网易集团", "netease", "NetEase"], campusUrl: "https://campus.163.com/", includeDomains: ["campus.163.com"] },
+  { companyName: "百度", aliases: ["baidu", "Baidu", "百度集团"], campusUrl: "https://talent.baidu.com/jobs/campus", includeDomains: ["talent.baidu.com"] },
+  { companyName: "滴滴", aliases: ["滴滴出行", "didi", "DiDi", "Didi"], campusUrl: "https://campus.didiglobal.com/", includeDomains: ["campus.didiglobal.com"] },
+  { companyName: "华为", aliases: ["huawei", "Huawei", "华为技术"], campusUrl: "https://career.huawei.com/cn/campus-recruitment", includeDomains: ["career.huawei.com"] },
+  { companyName: "哔哩哔哩", aliases: ["b站", "B站", "bilibili", "Bilibili"], campusUrl: "https://jobs.bilibili.com/campus/", includeDomains: ["jobs.bilibili.com"] },
+  { companyName: "蚂蚁集团", aliases: ["蚂蚁", "蚂蚁金服", "ant group", "Ant Group"], campusUrl: "https://talent.antgroup.com/campus", includeDomains: ["talent.antgroup.com"] },
+  { companyName: "拼多多", aliases: ["pdd", "PDD", "pinduoduo", "Pinduoduo"], campusUrl: "https://careers.pddglobalhr.com/campus", includeDomains: ["careers.pddglobalhr.com"] },
+  { companyName: "商汤科技", aliases: ["商汤", "sensetime", "SenseTime"], campusUrl: "https://hr.sensetime.com/SU62e109640dcad44de6f28a87/mc/position/campus", includeDomains: ["hr.sensetime.com"] },
+  { companyName: "微软", aliases: ["microsoft", "Microsoft", "MSFT"], campusUrl: "https://careers.microsoft.com/students/us/en/chinastudentjob", includeDomains: ["careers.microsoft.com"] },
+  { companyName: "谷歌", aliases: ["google", "Google", "谷歌中国"], campusUrl: "https://careers.google.com/students/", includeDomains: ["careers.google.com"] },
+  { companyName: "苹果", aliases: ["apple", "Apple"], campusUrl: "https://www.apple.com/careers/cn/students.html", includeDomains: ["www.apple.com"] },
 ];
 
-// ─── Company name matching ─────────────────────────────────────────────────────
-
 function normalizeCompanyName(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "")
-    .replace(/有限公司|股份有限公司|集团|公司|科技|技术/g, "");
+  return name.trim().toLowerCase().replace(/\s+/g, "").replace(/有限公司|股份有限公司|集团|公司|科技|技术/g, "");
 }
 
 function findCampusSource(companyInput: string): CampusSource | null {
   const normalized = normalizeCompanyName(companyInput);
-  return (
-    CAMPUS_SOURCES.find((source) => {
-      const names = [source.companyName, ...source.aliases];
-      return names.some((n) => normalizeCompanyName(n) === normalized);
-    }) ?? null
-  );
+  return CAMPUS_SOURCES.find((source) => {
+    const names = [source.companyName, ...source.aliases];
+    return names.some((n) => normalizeCompanyName(n) === normalized);
+  }) ?? null;
 }
 
-// ─── URL domain validation ─────────────────────────────────────────────────────
-
 function getHostname(url: string): string | null {
-  try {
-    return new URL(url).hostname.toLowerCase();
-  } catch {
-    return null;
-  }
+  try { return new URL(url).hostname.toLowerCase(); } catch { return null; }
 }
 
 function isAllowedUrl(url: string, source: CampusSource): boolean {
   const hostname = getHostname(url);
   if (!hostname) return false;
-  return source.includeDomains.some(
-    (domain) => hostname === domain || hostname.endsWith("." + domain)
-  );
+  return source.includeDomains.some((domain) => hostname === domain || hostname.endsWith("." + domain));
 }
 
-// ─── Campus signals filter ─────────────────────────────────────────────────────
-
-const CAMPUS_SIGNALS = [
-  "校园招聘", "校招", "应届生", "毕业生", "实习生", "实习",
-  "管培生", "储备", "2026届", "2027届", "2028届",
-  "campus", "graduate", "intern", "internship", "management trainee", "new grad",
-];
-
-const EXPERIENCED_SIGNALS = [
-  "社会招聘", "社招", "experienced", "5年以上", "8年以上", "10年以上", "资深总监",
-];
+const CAMPUS_SIGNALS = ["校园招聘", "校招", "应届生", "毕业生", "实习生", "实习", "管培生", "储备", "2026届", "2027届", "2028届", "campus", "graduate", "intern", "internship", "management trainee", "new grad"];
+const EXPERIENCED_SIGNALS = ["社会招聘", "社招", "experienced", "5年以上", "8年以上", "10年以上", "资深总监"];
 
 function isCampusJob(title: string, description: string): boolean {
   const text = (title + " " + description).toLowerCase();
-  const hasExperienced = EXPERIENCED_SIGNALS.some((s) => text.includes(s.toLowerCase()));
-  if (hasExperienced) return false;
-  const hasCampus = CAMPUS_SIGNALS.some((s) => text.includes(s.toLowerCase()));
-  return hasCampus;
+  if (EXPERIENCED_SIGNALS.some((s) => text.includes(s.toLowerCase()))) return false;
+  return CAMPUS_SIGNALS.some((s) => text.includes(s.toLowerCase()));
 }
-
-// ─── Build Tavily search query ─────────────────────────────────────────────────
 
 function buildSearchQuery(jobType: string): string {
-  // Don't include company name — domain restriction already limits the scope
-  const terms = [jobType, "校园招聘", "实习"];
-  return [...new Set(terms)].filter(Boolean).join(" ");
+  return [...new Set([jobType, "校园招聘", "实习"])].filter(Boolean).join(" ");
 }
-
-// ─── Main handler ──────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -209,16 +84,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 1: Match company
     const source = findCampusSource(company);
     if (!source) {
       return new Response(
-        JSON.stringify({
-          success: false,
-          error: `暂未收录「${company}」的官方校园招聘渠道。请使用链接导入或手动添加。`,
-          jobs: [],
-          supportedCompanies: CAMPUS_SOURCES.map((s) => s.companyName),
-        }),
+        JSON.stringify({ success: false, error: `暂未收录「${company}」的官方校园招聘渠道。请使用链接导入或手动添加。`, jobs: [], supportedCompanies: CAMPUS_SOURCES.map((s) => s.companyName) }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -226,45 +95,30 @@ Deno.serve(async (req) => {
     console.log("matched company:", source.companyName, "campus:", source.campusUrl);
 
     const TAVILY_API_KEY = Deno.env.get("TAVILY_API_KEY") || "";
-    const AI_TOKEN = Deno.env.get("AI_API_TOKEN_62325baf28c7") || "";
+    const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY") || "";
 
     if (!TAVILY_API_KEY) throw new Error("Tavily API Key 未配置");
-    if (!AI_TOKEN) throw new Error("AI Token 未配置");
+    if (!DEEPSEEK_API_KEY) throw new Error("DeepSeek API Key 未配置");
 
-    // Step 2: Tavily domain-restricted search (primary) + Jina scrape (parallel)
     const searchQuery = buildSearchQuery(jobType);
     console.log("Tavily query:", searchQuery, "domains:", source.includeDomains);
 
     const [tavilyRes, jinaRes] = await Promise.allSettled([
       fetch("https://api.tavily.com/search", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + TAVILY_API_KEY,
-        },
-        body: JSON.stringify({
-          query: searchQuery,
-          search_depth: "advanced",
-          max_results: 15,
-          include_domains: source.includeDomains,
-        }),
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + TAVILY_API_KEY },
+        body: JSON.stringify({ query: searchQuery, search_depth: "advanced", max_results: 15, include_domains: source.includeDomains }),
       }),
       fetch("https://r.jina.ai/" + source.campusUrl, {
-        headers: {
-          "Accept": "application/json",
-          "X-Return-Format": "markdown",
-          "X-Timeout": "20",
-        },
+        headers: { "Accept": "application/json", "X-Return-Format": "markdown", "X-Timeout": "20" },
         signal: AbortSignal.timeout(25000),
       }),
     ]);
 
-    // Parse Tavily results
     let tavilyResults: Array<{ title: string; url: string; content: string }> = [];
     if (tavilyRes.status === "fulfilled" && tavilyRes.value.ok) {
       const tavilyData = await tavilyRes.value.json();
       const raw = tavilyData.results || [];
-      // Hard validate: only keep URLs from allowed domains
       tavilyResults = raw.filter((r: any) => r.url && isAllowedUrl(r.url, source));
       console.log("Tavily results (domain-validated):", tavilyResults.length, "/", raw.length);
     } else {
@@ -272,7 +126,6 @@ Deno.serve(async (req) => {
       console.error("Tavily failed:", errMsg);
     }
 
-    // Parse Jina content for extra job links
     let jinaContent = "";
     if (jinaRes.status === "fulfilled" && jinaRes.value.ok) {
       const jinaData = await jinaRes.value.json().catch(() => ({}));
@@ -284,20 +137,13 @@ Deno.serve(async (req) => {
 
     if (tavilyResults.length === 0 && jinaContent.length < 100) {
       return new Response(
-        JSON.stringify({
-          success: false,
-          error: `已检查「${source.companyName}」官方校园招聘渠道，暂未发现符合条件的岗位。请稍后重试或使用链接导入。`,
-          jobs: [],
-        }),
+        JSON.stringify({ success: false, error: `已检查「${source.companyName}」官方校园招聘渠道，暂未发现符合条件的岗位。请稍后重试或使用链接导入。`, jobs: [] }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Step 3: AI extract job listings
     const tavilyText = tavilyResults
-      .map((r, i) =>
-        `[${i + 1}] 标题: ${r.title}\n    链接: ${r.url}\n    摘要: ${(r.content || "").slice(0, 400)}`
-      )
+      .map((r, i) => `[${i + 1}] 标题: ${r.title}\n    链接: ${r.url}\n    摘要: ${(r.content || "").slice(0, 400)}`)
       .join("\n\n");
 
     const jinaSnippet = jinaContent.slice(0, 3000);
@@ -327,15 +173,15 @@ ${jinaSnippet || "（无内容）"}
 5. 没有符合条件的岗位则返回 []
 6. 最多返回8个岗位`;
 
-    console.log("calling AI for extraction...");
-    const aiRes = await fetch("https://api.enter.pro/code/api/v1/ai/chat/completions", {
+    console.log("calling DeepSeek for extraction...");
+    const aiRes = await fetch("https://api.deepseek.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": "Bearer " + AI_TOKEN,
+        "Authorization": "Bearer " + DEEPSEEK_API_KEY,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "alibaba/qwen-3.6-plus",
+        model: "deepseek-chat",
         messages: [
           { role: "system", content: "你是校园招聘岗位提取助手，只返回JSON数组，不要任何其他文字。" },
           { role: "user", content: prompt },
@@ -347,7 +193,7 @@ ${jinaSnippet || "（无内容）"}
 
     if (!aiRes.ok) {
       const err = await aiRes.text();
-      console.error("AI error:", err.slice(0, 200));
+      console.error("DeepSeek error:", err.slice(0, 200));
       throw new Error("AI分析失败");
     }
 
@@ -355,26 +201,18 @@ ${jinaSnippet || "（无内容）"}
     const aiText = aiData.choices?.[0]?.message?.content || "[]";
     console.log("AI output preview:", aiText.slice(0, 300));
 
-    // Parse AI output
     let jobs: any[] = [];
     try {
       jobs = JSON.parse(aiText);
     } catch {
       const m = aiText.match(/\[[\s\S]*\]/);
-      if (m) {
-        try { jobs = JSON.parse(m[0]); } catch { jobs = []; }
-      }
+      if (m) { try { jobs = JSON.parse(m[0]); } catch { jobs = []; } }
     }
 
-    // Step 4: Final hard validation
     const validJobs = (Array.isArray(jobs) ? jobs : []).filter((j: any) => {
       if (!j || !j.title || !j.url) return false;
       if (!j.url.startsWith("http")) return false;
-      // Hard domain check
-      if (!isAllowedUrl(j.url, source)) {
-        console.log("rejected non-official URL:", j.url);
-        return false;
-      }
+      if (!isAllowedUrl(j.url, source)) { console.log("rejected non-official URL:", j.url); return false; }
       return true;
     });
 
@@ -385,13 +223,7 @@ ${jinaSnippet || "（无内容）"}
       : `已检查「${source.companyName}」官方校园招聘渠道，暂未发现符合条件的${jobType}岗位`;
 
     return new Response(
-      JSON.stringify({
-        success: validJobs.length > 0,
-        message,
-        jobs: validJobs,
-        source: { company: source.companyName, campusUrl: source.campusUrl },
-        error: validJobs.length === 0 ? message : undefined,
-      }),
+      JSON.stringify({ success: validJobs.length > 0, message, jobs: validJobs, source: { company: source.companyName, campusUrl: source.campusUrl }, error: validJobs.length === 0 ? message : undefined }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 

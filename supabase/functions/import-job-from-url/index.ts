@@ -6,7 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Extract user ID from JWT token
 function getUserIdFromToken(req: Request): string | null {
   try {
     const authHeader = req.headers.get("Authorization") || "";
@@ -76,7 +75,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Extract user ID from JWT
     const userId = getUserIdFromToken(req);
     console.log("user_id:", userId);
 
@@ -87,8 +85,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const AI_API_TOKEN = Deno.env.get("AI_API_TOKEN_62325baf28c7");
-    if (!AI_API_TOKEN) throw new Error("AI token not configured");
+    const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
+    if (!DEEPSEEK_API_KEY) throw new Error("DeepSeek API key not configured");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -111,15 +109,15 @@ Deno.serve(async (req) => {
     const trimmedContent = content.slice(0, 5000);
     console.log("content trimmed to:", trimmedContent.length, "chars");
 
-    console.log("calling Qwen for extraction...");
-    const aiResponse = await fetch("https://api.enter.pro/code/api/v1/ai/chat/completions", {
+    console.log("calling DeepSeek for extraction...");
+    const aiResponse = await fetch("https://api.deepseek.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": "Bearer " + AI_API_TOKEN,
+        "Authorization": "Bearer " + DEEPSEEK_API_KEY,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "alibaba/qwen-3.6-plus",
+        model: "deepseek-chat",
         messages: [
           {
             role: "system",
@@ -137,7 +135,7 @@ Deno.serve(async (req) => {
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("AI call failed:", errorText.slice(0, 300));
+      console.error("DeepSeek call failed:", errorText.slice(0, 300));
       throw new Error("AI analysis failed");
     }
 
@@ -203,15 +201,14 @@ Deno.serve(async (req) => {
 function matchCategory(title: string, categories: any[], userId: string | null) {
   const lower = title.toLowerCase();
   const keyMap: Record<string, string[]> = {
-    "\u4ea7\u54c1": ["\u4ea7\u54c1", "product", "pm"],
-    "\u8fd0\u8425": ["\u8fd0\u8425", "\u589e\u957f", "operations", "growth"],
-    "\u5e02\u573a": ["\u5e02\u573a", "\u8425\u9500", "marketing", "brand", "\u516c\u5173"],
-    "\u6218\u7565": ["\u6218\u7565", "\u6218\u89c4", "strategy", "strategic"],
-    "\u5546\u5206": ["\u5546\u5206", "\u5546\u4e1a\u5206\u6790", "\u4e1a\u52a1\u5206\u6790", "\u6570\u636e\u5206\u6790", "business analyst", "analytics", "analyst"],
+    "产品": ["产品", "product", "pm"],
+    "运营": ["运营", "增长", "operations", "growth"],
+    "市场": ["市场", "营销", "marketing", "brand", "公关"],
+    "战略": ["战略", "战规", "strategy", "strategic"],
+    "商分": ["商分", "商业分析", "业务分析", "数据分析", "business analyst", "analytics", "analyst"],
   };
   for (const [catName, keywords] of Object.entries(keyMap)) {
     if (keywords.some((k) => lower.includes(k.toLowerCase()))) {
-      // Try to find user's category first, fall back to any matching category
       const userCat = userId
         ? categories.find((c: any) => c.name === catName && c.user_id === userId)
         : null;
@@ -219,7 +216,7 @@ function matchCategory(title: string, categories: any[], userId: string | null) 
     }
   }
   const userOther = userId
-    ? categories.find((c: any) => c.name === "\u5176\u4ed6" && c.user_id === userId)
+    ? categories.find((c: any) => c.name === "其他" && c.user_id === userId)
     : null;
-  return (userOther || categories.find((c: any) => c.name === "\u5176\u4ed6"))?.id;
+  return (userOther || categories.find((c: any) => c.name === "其他"))?.id;
 }

@@ -20,9 +20,7 @@ const FALLBACK_MESSAGES: Record<string, string> = {
 };
 
 function getUserErrorMessage(code: string, backendMessage: string): string {
-  if (backendMessage) {
-    return backendMessage;
-  }
+  if (backendMessage) return backendMessage;
   return FALLBACK_MESSAGES[code] || "服务暂时不可用";
 }
 
@@ -36,18 +34,20 @@ export function useAIInterview(jobDescription: string) {
     abortControllerRef.current = new AbortController();
 
     const userMessage: InterviewMessage = { role: "user", content };
-    const assistantMessage: InterviewMessage = { 
-      role: "assistant", 
-      content: "", 
-      thinking: "", 
-      isStreaming: true 
+    const assistantMessage: InterviewMessage = {
+      role: "assistant",
+      content: "",
+      thinking: "",
+      isStreaming: true,
     };
 
     setMessages(prev => [...prev, userMessage, assistantMessage]);
     setIsLoading(true);
     setError(null);
 
-    const blocks = new Map<number, { type: string; content: string }>();
+    // Accumulate content across chunks
+    let thinkingAcc = "";
+    let contentAcc = "";
 
     try {
       await fetchEventSource(`${SUPABASE_URL}/functions/v1/ai-interview-62325baf28c7`, {
@@ -57,89 +57,74 @@ export function useAIInterview(jobDescription: string) {
           Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          messages: messages.map(m => ({
-            role: m.role, 
-            content: m.content,
-          })),
-          model: "anthropic/claude-sonnet-4.5",
+          messages: messages.map(m => ({ role: m.role, content: m.content })),
           jobDescription,
         }),
         signal: abortControllerRef.current.signal,
-        
+
         async onopen(response) {
-          const contentType = response.headers.get("content-type");
-          
           if (!response.ok) {
-            if (contentType?.includes("text/event-stream")) {
-              const text = await response.text();
-              const dataMatch = text.match(/data: (.+)/);
-              if (dataMatch) {
-                try {
-                  const errorData = JSON.parse(dataMatch[1]);
-                  if (errorData.type === "error" && errorData.error?.message) {
-                    throw new Error(errorData.error.message);
-                  }
-                } catch (parseError) {
-                  if (parseError instanceof Error && parseError.message !== "Unexpected token") {
-                    throw parseError;
-                  }
-                }
-              }
-            }
-            
+            const contentType = response.headers.get("content-type");
             if (contentType?.includes("application/json")) {
               const errorData = await response.json();
-              throw new Error(errorData.error?.message || errorData.error || `请求失败: ${response.status}`);
+              throw new Error(errorData.error?.message || `请求失败: ${response.status}`);
             }
-            
             throw new Error(`请求失败: ${response.status}`);
           }
-          
-          if (!contentType?.includes("text/event-stream")) {
-            throw new Error(`期望 text/event-stream，收到: ${contentType}`);
-          }
         },
-        
+
         onmessage(event) {
           if (!event.data) return;
-          const data = JSON.parse(event.data);
-          
-          if (data.type === "error") {
-            const errorMsg = getUserErrorMessage(
-              data.error?.type || "api_error",
-              data.error?.message || "服务错误"
-            );
-            setError(errorMsg);
-            setMessages(prev => prev.slice(0, -1));
+
+          // DeepSeek/OpenAI stream end signal
+          if (event.data === "[DONE]") {
+            setMessages(prev => updateLastAssistant(prev, { isStreaming: false }));
             setIsLoading(false);
             return;
           }
-          
-          switch (data.type) {
-            case "content_block_start": {
-              blocks.set(data.index, { type: data.content_block.type, content: "" });
-              break;
+
+          try {
+            const data = JSON.parse(event.data);
+
+            // Edge function error event
+            if (data.type === "error") {
+              const errorMsg = getUserErrorMessage(
+                data.error?.type || "api_error",
+                data.error?.message || "服务错误"
+              );
+              setError(errorMsg);
+              setMessages(prev => prev.slice(0, -1));
+              setIsLoading(false);
+              return;
             }
-            case "content_block_delta": {
-              const block = blocks.get(data.index);
-              if (block?.type === "thinking") {
-                block.content += data.delta.thinking || "";
-                setMessages(prev => updateLastAssistant(prev, { thinking: block.content }));
-              } else if (block?.type === "text") {
-                block.content += data.delta.text || "";
-                setMessages(prev => updateLastAssistant(prev, { content: block.content }));
-              }
-              break;
+
+            const delta = data.choices?.[0]?.delta;
+            if (!delta) return;
+
+            // DeepSeek-R1 reasoning / thinking content
+            if (delta.reasoning_content) {
+              thinkingAcc += delta.reasoning_content;
+              setMessages(prev => updateLastAssistant(prev, { thinking: thinkingAcc }));
             }
-            case "message_stop": {
+
+            // Main response content
+            if (delta.content) {
+              contentAcc += delta.content;
+              setMessages(prev => updateLastAssistant(prev, { content: contentAcc }));
+            }
+
+            // Finish signal via finish_reason
+            if (data.choices?.[0]?.finish_reason === "stop") {
               setMessages(prev => updateLastAssistant(prev, { isStreaming: false }));
               setIsLoading(false);
-              break;
             }
+          } catch {
+            // Ignore malformed chunks
           }
         },
-        onerror(err) { 
-          throw err; 
+
+        onerror(err) {
+          throw err;
         },
       });
     } catch (err) {
@@ -164,7 +149,10 @@ export function useAIInterview(jobDescription: string) {
   return { messages, isLoading, error, sendMessage, startInterview, cancel };
 }
 
-function updateLastAssistant(messages: InterviewMessage[], updates: Partial<InterviewMessage>): InterviewMessage[] {
+function updateLastAssistant(
+  messages: InterviewMessage[],
+  updates: Partial<InterviewMessage>
+): InterviewMessage[] {
   const updated = [...messages];
   const last = updated[updated.length - 1];
   if (last?.role === "assistant") {
