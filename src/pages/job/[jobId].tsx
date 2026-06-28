@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { JobStatus } from '@/types/job';
 import { useDeleteJob, useRestoreJob, useToggleBookmark } from '@/hooks/use-jobs';
 import { useAuth } from '@/hooks/use-auth';
+import { JobDescriptionRenderer } from '@/components/job/JobDescriptionRenderer';
 
 export default function JobDetail() {
   const { jobId } = useParams();
@@ -300,11 +301,21 @@ export default function JobDetail() {
             <CardTitle>岗位描述</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="whitespace-pre-wrap text-sm leading-relaxed">
-              {job.description || '暂无岗位描述'}
-            </div>
+            <JobDescriptionRenderer text={job.description || '暂无岗位描述'} />
           </CardContent>
         </Card>
+
+        {/* 岗位要求 */}
+        {job.requirements && (
+          <Card>
+            <CardHeader>
+              <CardTitle>岗位要求</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <JobDescriptionRenderer text={job.requirements} />
+            </CardContent>
+          </Card>
+        )}
 
         {/* 底部操作 */}
         <div className="flex justify-center gap-4 pt-4">

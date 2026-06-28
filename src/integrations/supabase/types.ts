@@ -219,6 +219,7 @@ export type Database = {
           is_shared: boolean
           location: string | null
           published_at: string
+          requirements: string | null
           scraped_at: string
           shared_to_group_id: string | null
           source_url: string | null
@@ -235,6 +236,7 @@ export type Database = {
           is_shared?: boolean
           location?: string | null
           published_at?: string
+          requirements?: string | null
           scraped_at?: string
           shared_to_group_id?: string | null
           source_url?: string | null
@@ -251,6 +253,7 @@ export type Database = {
           is_shared?: boolean
           location?: string | null
           published_at?: string
+          requirements?: string | null
           scraped_at?: string
           shared_to_group_id?: string | null
           source_url?: string | null

@@ -29,7 +29,11 @@ export default function Interview() {
     error, 
     sendMessage, 
     startInterview 
-  } = useAIInterview(job?.description || '');
+  } = useAIInterview(
+    job?.description || '',
+    job?.title || '',
+    job?.category?.name || '',
+  );
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {

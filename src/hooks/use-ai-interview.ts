@@ -24,7 +24,7 @@ function getUserErrorMessage(code: string, backendMessage: string): string {
   return FALLBACK_MESSAGES[code] || "服务暂时不可用";
 }
 
-export function useAIInterview(jobDescription: string) {
+export function useAIInterview(jobDescription: string, jobTitle = '', jobCategory = '') {
   const [messages, setMessages] = useState<InterviewMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +59,8 @@ export function useAIInterview(jobDescription: string) {
         body: JSON.stringify({
           messages: messages.map(m => ({ role: m.role, content: m.content })),
           jobDescription,
+          jobTitle,
+          jobCategory,
         }),
         signal: abortControllerRef.current.signal,
 
@@ -135,7 +137,7 @@ export function useAIInterview(jobDescription: string) {
       }
       setIsLoading(false);
     }
-  }, [messages, jobDescription]);
+  }, [messages, jobDescription, jobTitle, jobCategory]);
 
   const startInterview = useCallback(() => {
     sendMessage("你好，我准备好开始面试了。");

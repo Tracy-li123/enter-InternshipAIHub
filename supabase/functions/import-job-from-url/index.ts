@@ -41,7 +41,6 @@ async function fetchPageContent(url: string): Promise<string> {
         console.log("direct fetch ok, length:", text.length);
         return text;
       }
-      console.log("direct fetch too short (" + text.length + " chars), falling back to Jina");
     }
   } catch (e: any) {
     console.log("direct fetch failed:", e.message);
@@ -56,7 +55,6 @@ async function fetchPageContent(url: string): Promise<string> {
   const jinaData = await jinaRes.json();
   const content = (jinaData.data && jinaData.data.content) ? jinaData.data.content : (jinaData.content || "");
   if (content.length < 100) throw new Error("webpage content is empty or blocked");
-  console.log("jina fetch ok, length:", content.length);
   return content;
 }
 
@@ -76,11 +74,10 @@ Deno.serve(async (req) => {
     }
 
     const userId = getUserIdFromToken(req);
-    console.log("user_id:", userId);
 
     if (url.includes("zhipin.com")) {
       return new Response(
-        JSON.stringify({ success: false, error: "BOSS zhipin cannot be scraped, please use manual entry", needManualInput: true }),
+        JSON.stringify({ success: false, error: "BOSS直聘无法抓取，请手动填写岗位信息", needManualInput: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -106,8 +103,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const trimmedContent = content.slice(0, 5000);
-    console.log("content trimmed to:", trimmedContent.length, "chars");
+    const trimmedContent = content.slice(0, 6000);
 
     console.log("calling DeepSeek for extraction...");
     const aiResponse = await fetch("https://api.deepseek.com/v1/chat/completions", {
@@ -121,15 +117,31 @@ Deno.serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a job info extractor. Return only JSON, no markdown, no extra text.",
+            content: "You are a job info extractor. Return only valid JSON, no markdown fences, no extra text.",
           },
           {
             role: "user",
-            content: "Extract job info from the content below. Return exactly this JSON: {\"title\":\"specific job title only (no company name)\",\"company\":\"company name\",\"location\":\"city\",\"description\":\"job description\"}\n\nContent:\n" + trimmedContent,
+            content: `Extract job info from the content below. Return exactly this JSON structure:
+{
+  "title": "specific job title (no company name)",
+  "company": "company name",
+  "location": "city or region",
+  "description": "job responsibilities and duties (preserve structure: use numbered lists like 1. 2. 3. or bullet points - for each item, keep original format)",
+  "requirements": "job requirements and qualifications (preserve structure: use numbered lists or bullet points, keep original format)"
+}
+
+Rules:
+- Keep description and requirements as separate fields
+- Preserve numbered lists and bullet points from the original
+- If requirements section doesn't exist separately, extract any qualification/requirement sentences into requirements field
+- Use the original language (Chinese if source is Chinese)
+
+Content:
+${trimmedContent}`,
           },
         ],
         stream: false,
-        max_tokens: 1500,
+        max_tokens: 2500,
       }),
     });
 
@@ -143,7 +155,6 @@ Deno.serve(async (req) => {
     const aiText = (aiResult.choices && aiResult.choices[0] && aiResult.choices[0].message)
       ? aiResult.choices[0].message.content
       : "";
-    console.log("AI text preview:", aiText.slice(0, 200));
 
     let jobInfo: any;
     try {
@@ -157,7 +168,7 @@ Deno.serve(async (req) => {
 
     if (!jobInfo || !jobInfo.title || !jobInfo.company) {
       return new Response(
-        JSON.stringify({ success: false, error: "AI could not extract job info, please use manual entry", needManualInput: true }),
+        JSON.stringify({ success: false, error: "AI无法提取岗位信息，请手动填写", needManualInput: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -170,8 +181,9 @@ Deno.serve(async (req) => {
       .insert({
         title: jobInfo.title.trim(),
         company: jobInfo.company.trim(),
-        location: (jobInfo.location || "").trim() || "unknown",
+        location: (jobInfo.location || "").trim() || "未知",
         description: (jobInfo.description || "").trim(),
+        requirements: (jobInfo.requirements || "").trim(),
         source_url: url,
         category_id: categoryId,
         user_id: userId,
@@ -183,16 +195,15 @@ Deno.serve(async (req) => {
 
     if (insertError) throw insertError;
 
-    console.log("import success:", newJob.title, "user:", userId);
     return new Response(
-      JSON.stringify({ success: true, message: "imported: " + jobInfo.title, job: newJob }),
+      JSON.stringify({ success: true, message: "导入成功: " + jobInfo.title, job: newJob }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error: any) {
     console.error("import failed:", error.message);
     return new Response(
-      JSON.stringify({ success: false, error: error.message || "import failed" }),
+      JSON.stringify({ success: false, error: error.message || "导入失败" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
