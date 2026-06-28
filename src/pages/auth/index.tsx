@@ -107,7 +107,7 @@ export default function AuthPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: signupForm.email,
         password: signupForm.password,
         options: {
@@ -123,9 +123,15 @@ export default function AuthPage() {
         }
         return;
       }
-      // Email verification required — show verify prompt
-      setVerifiedEmail(signupForm.email);
-      setView('verify-email');
+      if (data.session) {
+        // Auto-confirm enabled: user is immediately logged in
+        toast.success('注册成功！');
+        navigate('/', { replace: true });
+      } else {
+        // Email verification required
+        setVerifiedEmail(signupForm.email);
+        setView('verify-email');
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : '注册失败');
     } finally {
