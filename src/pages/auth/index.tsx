@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -16,22 +16,9 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const [submitting, setSubmitting] = useState(false);
-
-  // Read URL hash type BEFORE Supabase's async _initialize() processes it.
-  // Supabase processes hashes asynchronously (via microtasks), so the hash
-  // is still intact during the first synchronous React render.
-  const initialHashType = useMemo(() => {
-    try {
-      return new URLSearchParams(window.location.hash.substring(1)).get('type');
-    } catch { return null; }
-  }, []);
-
-  const [view, setView] = useState<View>(() => {
-    if (initialHashType === 'recovery') return 'reset-password';
-    return 'auth';
-  });
+  const [view, setView] = useState<View>('auth');
   const [verifiedEmail, setVerifiedEmail] = useState('');
-  const recoveryMode = useRef(initialHashType === 'recovery');
+  const recoveryMode = useRef(false);
 
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [signupForm, setSignupForm] = useState({ email: '', password: '', name: '' });
@@ -47,8 +34,6 @@ export default function AuthPage() {
   }, [user, loading, navigate]);
 
   // Listen for PASSWORD_RECOVERY event (when user clicks reset email link)
-  // With hash-based flow, this fires after _initialize() async, but we also
-  // detect it early via initialHashType useMemo above as a fallback.
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
