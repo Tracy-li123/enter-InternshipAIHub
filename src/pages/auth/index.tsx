@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,15 +10,44 @@ import { Briefcase, Loader2, Mail, ArrowLeft, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 
-type View = 'auth' | 'verify-email' | 'forgot-password' | 'forgot-sent' | 'reset-password';
+type View = 'auth' | 'verify-email' | 'forgot-password' | 'forgot-sent' | 'reset-password' | 'verifying';
+
+// Build the emailRedirectTo URL: points to our auth-redirect Edge Function,
+// which then forwards the PKCE code to the actual app URL.
+// The Edge Function lives on the Supabase domain so it bypasses the redirect URL allowlist.
+const buildRedirectUrl = () => {
+  const appUrl = encodeURIComponent(window.location.origin);
+  return `${SUPABASE_URL}/functions/v1/auth-redirect?app_url=${appUrl}`;
+};
 
 export default function AuthPage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const [submitting, setSubmitting] = useState(false);
-  const [view, setView] = useState<View>('auth');
+
+  // Read URL hash BEFORE Supabase's async _initialize() clears/processes it.
+  // Supabase processes the hash asynchronously (network token exchange), so
+  // the hash is still available during the first synchronous render.
+  const initialHashType = useMemo(() => {
+    try {
+      return new URLSearchParams(window.location.hash.substring(1)).get('type');
+    } catch { return null; }
+  }, []); // empty deps → runs once on mount, before any effects
+
+  // Detect PKCE code in URL (?code=xxx) — means user arrived via email link
+  const hasPkceCode = useMemo(() => {
+    try {
+      return !!new URLSearchParams(window.location.search).get('code');
+    } catch { return false; }
+  }, []);
+
+  const [view, setView] = useState<View>(() => {
+    if (hasPkceCode) return 'verifying'; // PKCE code exchange in progress
+    if (initialHashType === 'recovery') return 'reset-password';
+    return 'auth';
+  });
   const [verifiedEmail, setVerifiedEmail] = useState('');
-  const recoveryMode = useRef(false);
+  const recoveryMode = useRef(initialHashType === 'recovery');
 
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [signupForm, setSignupForm] = useState({ email: '', password: '', name: '' });
@@ -33,13 +62,16 @@ export default function AuthPage() {
     }
   }, [user, loading, navigate]);
 
-  // Listen for PASSWORD_RECOVERY event (when user clicks reset email link)
+  // Listen for PASSWORD_RECOVERY or SIGNED_IN after PKCE code exchange
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
+        // User clicked a password-reset link → show reset form
         recoveryMode.current = true;
         setView('reset-password');
       }
+      // SIGNED_IN during 'verifying' = email verification success
+      // The user useEffect below handles navigation to '/'
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -80,7 +112,7 @@ export default function AuthPage() {
         email: signupForm.email,
         password: signupForm.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: buildRedirectUrl(),
           data: { display_name: signupForm.name },
         },
       });
@@ -108,7 +140,7 @@ export default function AuthPage() {
     setSubmitting(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: buildRedirectUrl(),
       });
       if (error) throw error;
       setView('forgot-sent');
@@ -151,7 +183,7 @@ export default function AuthPage() {
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: verifiedEmail,
-        options: { emailRedirectTo: `${window.location.origin}/` },
+        options: { emailRedirectTo: buildRedirectUrl() },
       });
       if (error) throw error;
       toast.success('验证邮件已重新发送');
@@ -181,6 +213,23 @@ export default function AuthPage() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">职达实习生</h1>
         </div>
+
+        {/* ── Verifying (PKCE code exchange in progress) ── */}
+        {view === 'verifying' && (
+          <Card className="border shadow-lg text-center">
+            <CardContent className="pt-8 pb-8 space-y-4">
+              <div className="flex justify-center">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold mb-2">正在验证身份</h2>
+                <p className="text-sm text-muted-foreground">请稍候...</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ── Verify Email Prompt ── */}
         {view === 'verify-email' && (
