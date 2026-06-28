@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -16,9 +16,24 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const [submitting, setSubmitting] = useState(false);
-  const [view, setView] = useState<View>('auth');
+
+  // ── Critical timing fix ───────────────────────────────────────────────────
+  // Supabase processes the URL hash ASYNCHRONOUSLY (microtasks after the first
+  // synchronous render). Reading the hash here, during the first render via
+  // useMemo, captures 'type=recovery' before Supabase clears it.
+  // Without this, PASSWORD_RECOVERY fires before onAuthStateChange is
+  // subscribed (in useEffect), so the event is silently lost.
+  const initialHashType = useMemo(() => {
+    try {
+      return new URLSearchParams(window.location.hash.substring(1)).get('type');
+    } catch { return null; }
+  }, []);
+
+  const [view, setView] = useState<View>(() =>
+    initialHashType === 'recovery' ? 'reset-password' : 'auth'
+  );
   const [verifiedEmail, setVerifiedEmail] = useState('');
-  const recoveryMode = useRef(false);
+  const recoveryMode = useRef(initialHashType === 'recovery');
 
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [signupForm, setSignupForm] = useState({ email: '', password: '', name: '' });
@@ -34,6 +49,7 @@ export default function AuthPage() {
   }, [user, loading, navigate]);
 
   // Listen for PASSWORD_RECOVERY event (when user clicks reset email link)
+  // Also fires after our useMemo hash detection sets recoveryMode.current = true
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
@@ -43,6 +59,21 @@ export default function AuthPage() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Poll for verified session while on verify-email screen.
+  // When the user clicks the email link in another tab, Supabase syncs the
+  // session via localStorage → this poll detects it and navigates home.
+  useEffect(() => {
+    if (view !== 'verify-email') return;
+    const poll = setInterval(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        clearInterval(poll);
+        navigate('/', { replace: true });
+      }
+    }, 2000);
+    return () => clearInterval(poll);
+  }, [view, navigate]);
 
   // ── Login ────────────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
