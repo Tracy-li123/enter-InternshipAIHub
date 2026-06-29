@@ -1,0 +1,1 @@
+DELETE FROM jobs WHERE title = '校园招聘' AND company IN ('字节跳动', 'ByteDance');
