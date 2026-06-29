@@ -12,9 +12,9 @@ interface CampusSource {
 }
 
 const CAMPUS_SOURCES: CampusSource[] = [
-  { companyName: "字节跳动", aliases: ["字节", "bytedance", "ByteDance", "抖音"], campusUrl: "https://jobs.bytedance.com/campus", includeDomains: ["jobs.bytedance.com"] },
+  { companyName: "字节跳动", aliases: ["字节", "bytedance", "ByteDance", "抖音"], campusUrl: "https://jobs.bytedance.com/campus/position", includeDomains: ["jobs.bytedance.com"] },
   { companyName: "美团", aliases: ["美团点评", "meituan", "Meituan"], campusUrl: "https://zhaopin.meituan.com/web/campus", includeDomains: ["zhaopin.meituan.com", "campus.meituan.com"] },
-  { companyName: "腾讯", aliases: ["tencent", "Tencent", "腾讯公司"], campusUrl: "https://join.qq.com/", includeDomains: ["join.qq.com"] },
+  { companyName: "腾讯", aliases: ["tencent", "Tencent", "腾讯公司"], campusUrl: "https://join.qq.com/post.html", includeDomains: ["join.qq.com"] },
   { companyName: "阿里巴巴", aliases: ["阿里", "alibaba", "Alibaba", "淘宝", "天猫"], campusUrl: "https://campus-talent.alibaba.com/", includeDomains: ["campus-talent.alibaba.com", "talent.alibaba.com"] },
   { companyName: "京东", aliases: ["jd", "JD", "JD.com", "京东集团"], campusUrl: "https://campus.jd.com/", includeDomains: ["campus.jd.com"] },
   { companyName: "小红书", aliases: ["rednote", "REDnote", "xiaohongshu", "Xiaohongshu"], campusUrl: "https://job.xiaohongshu.com/campus", includeDomains: ["job.xiaohongshu.com"] },
