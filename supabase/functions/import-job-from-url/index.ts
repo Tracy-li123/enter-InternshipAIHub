@@ -126,7 +126,13 @@ async function fetchPageContent(url: string): Promise<FetchResult> {
 
   console.log("falling back to Jina...");
   try {
-    const jinaRes = await fetch("https://r.jina.ai/" + url, {
+    // Hash-routed SPAs (e.g. https://campus.jd.com/#/details?id=8006) put the
+    // real route after "#". Per URL spec, everything after "#" is a client-side
+    // fragment and is NEVER sent over the wire — fetch() strips it, so Jina would
+    // only ever see the site's root path and return the homepage shell.
+    // Encoding "#" as "%23" makes it a literal path segment Jina can navigate to.
+    const jinaTargetUrl = url.includes("/#/") ? url.replace("/#/", "/%23/") : url;
+    const jinaRes = await fetch("https://r.jina.ai/" + jinaTargetUrl, {
       headers: {
         "Accept": "application/json",
         "X-Return-Format": "markdown",
