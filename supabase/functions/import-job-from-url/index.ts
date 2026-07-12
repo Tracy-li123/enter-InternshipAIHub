@@ -59,7 +59,12 @@ async function fetchBytedanceJob(url: string): Promise<string | null> {
   }
 }
 
-async function fetchPageContent(url: string): Promise<string> {
+interface FetchResult {
+  content: string;
+  errorReason?: string;
+}
+
+async function fetchPageContent(url: string): Promise<FetchResult> {
   try {
     console.log("trying direct fetch...");
     const res = await fetch(url, {
@@ -80,7 +85,7 @@ async function fetchPageContent(url: string): Promise<string> {
         .trim();
       if (text.length > 1500) {
         console.log("direct fetch ok, length:", text.length);
-        return text;
+        return { content: text };
       }
     }
   } catch (e: any) {
@@ -88,21 +93,43 @@ async function fetchPageContent(url: string): Promise<string> {
   }
 
   console.log("falling back to Jina...");
-  const jinaRes = await fetch("https://r.jina.ai/" + url, {
-    headers: {
-      "Accept": "application/json",
-      "X-Return-Format": "markdown",
-      "X-Timeout": "20",
-      // Remove common nav/footer noise to get the main content
-      "X-Remove-Selector": "header,footer,nav,.nav,.header,.footer,.breadcrumb,.sidebar",
-    },
-    signal: AbortSignal.timeout(25000),
-  });
-  if (!jinaRes.ok) throw new Error("cannot access the webpage");
-  const jinaData = await jinaRes.json();
-  const content = (jinaData.data && jinaData.data.content) ? jinaData.data.content : (jinaData.content || "");
-  if (content.length < 100) throw new Error("webpage content is empty or blocked");
-  return content;
+  try {
+    const jinaRes = await fetch("https://r.jina.ai/" + url, {
+      headers: {
+        "Accept": "application/json",
+        "X-Return-Format": "markdown",
+        "X-Timeout": "20",
+        // Remove common nav/footer noise to get the main content
+        "X-Remove-Selector": "header,footer,nav,.nav,.header,.footer,.breadcrumb,.sidebar",
+      },
+      signal: AbortSignal.timeout(25000),
+    });
+
+    if (!jinaRes.ok) {
+      const rawText = await jinaRes.text();
+      let reason = "该网站限制了自动抓取";
+      try {
+        const j = JSON.parse(rawText);
+        if (j.name === "AbuseAlleviationError") {
+          reason = "该网站页面为动态加载内容，第三方抓取服务暂时限流，请稍后重试或手动填写";
+        } else if (j.message) {
+          reason = "抓取失败：" + String(j.message).slice(0, 120);
+        }
+      } catch { /* keep default reason */ }
+      console.log("Jina failed:", jinaRes.status, reason);
+      return { content: "", errorReason: reason };
+    }
+
+    const jinaData = await jinaRes.json();
+    const content = (jinaData.data && jinaData.data.content) ? jinaData.data.content : (jinaData.content || "");
+    if (content.length < 100) {
+      return { content: "", errorReason: "网页内容为空，可能需要登录或存在反爬保护" };
+    }
+    return { content };
+  } catch (e: any) {
+    console.log("Jina fetch threw:", e.message);
+    return { content: "", errorReason: "抓取超时或网络异常，请稍后重试" };
+  }
 }
 
 Deno.serve(async (req) => {
@@ -170,9 +197,22 @@ Deno.serve(async (req) => {
 
     if (!jobInfo) {
       // ── Fallback: scrape + AI extraction ──
-      const content = await fetchPageContent(url);
+      const fetchResult = await fetchPageContent(url);
+
+      if (!fetchResult.content) {
+        // Return 200 with a clear reason instead of a generic 500 "network error"
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: fetchResult.errorReason || "该网页无法自动抓取，请手动填写岗位信息",
+            needManualInput: true,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       // Increase limit to 15000 to capture full job content on long pages
-      const trimmedContent = content.slice(0, 15000);
+      const trimmedContent = fetchResult.content.slice(0, 15000);
 
       console.log("calling DeepSeek for extraction...");
       const aiResponse = await fetch("https://api.deepseek.com/v1/chat/completions", {
@@ -218,7 +258,10 @@ ${trimmedContent}`,
       if (!aiResponse.ok) {
         const errorText = await aiResponse.text();
         console.error("DeepSeek call failed:", errorText.slice(0, 300));
-        throw new Error("AI analysis failed");
+        return new Response(
+          JSON.stringify({ success: false, error: "AI解析岗位信息失败，请手动填写", needManualInput: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
       const aiResult = await aiResponse.json();

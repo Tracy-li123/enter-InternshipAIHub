@@ -66,12 +66,14 @@ export default function ImportPage() {
         navigate('/');
       } else if (data.needManualInput) {
         setError(data.error);
+        setManualForm((prev) => ({ ...prev, sourceUrl: url.trim() }));
         setActiveTab('manual');
       } else {
         setError(data.error || '导入失败');
       }
     } catch (err) {
-      setError('网络错误，请重试');
+      const message = err instanceof Error ? err.message : '网络请求失败，请检查网络后重试';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
