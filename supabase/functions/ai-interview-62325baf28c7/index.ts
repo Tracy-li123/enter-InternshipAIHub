@@ -3,7 +3,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// PM role detection
+// ─── Role detection ─────────────────────────────────────────────────────────
 const PM_KEYWORDS = [
   "产品经理", "产品总监", "产品负责人", "产品主管", "产品专家",
   "ai产品", "ai pm", "aigc产品", "智能产品",
@@ -33,221 +33,155 @@ function isBigTech(company: string): boolean {
   return BIG_TECH.some(c => company.includes(c));
 }
 
-// ── Question Bank (ported from github.com/Tracy-li123/non-technical-interview-coach) ──
-
-type QCategory = "opening" | "project" | "product_sense" | "demand_research" |
-  "data_metrics" | "prioritization" | "cross_functional" | "ai_product" |
-  "agent" | "model_evaluation" | "commercialization" | "competitor" | "personal";
-
-interface Q {
-  id: string;
-  category: QCategory;
-  categoryLabel: string;
-  text: string;
-  source: string;
-  tags: string[];
-  framework?: string;
-}
-
-const PM_QUESTIONS: Q[] = [
-  { id: "op1", category: "opening", categoryLabel: "开场与动机", text: "请做一个 60-90 秒自我介绍，重点讲你和产品经理岗位最相关的经历。", source: "[AI-PM-BANK]", tags: ["通用", "开场"], framework: "Past-Present-Future" },
-  { id: "op2", category: "opening", categoryLabel: "开场与动机", text: "你做过最能代表你产品能力的项目是什么？为什么选它？", source: "[AI-PM-BANK]", tags: ["通用", "开场"], framework: "Claim-Evidence-Learning" },
-  { id: "op3", category: "opening", categoryLabel: "开场与动机", text: "如果入职这个岗位，你认为自己最能胜任哪三件事？分别有什么证据？", source: "[AI-PM-BANK]", tags: ["通用", "开场"] },
-  { id: "op4", category: "opening", categoryLabel: "开场与动机", text: "你为什么从现在的背景转向产品经理？转型过程中沉淀了什么可迁移能力？", source: "[AI-PM-BANK]", tags: ["转岗"], framework: "Past-Present-Future" },
-  { id: "op5", category: "opening", categoryLabel: "开场与动机", text: "你为什么投我们公司和这个岗位？你提前做过哪些产品或业务研究？", source: "[AI-PM-BANK]", tags: ["动机", "腾讯"] },
-  { id: "pr1", category: "project", categoryLabel: "项目深挖", text: "介绍一个核心项目：背景、目标、你的动作、结果。", source: "[AI-PM-BANK]", tags: ["通用"], framework: "STAR+" },
-  { id: "pr2", category: "project", categoryLabel: "项目深挖", text: "这个项目的需求最初从哪里来？是谁提出的？你如何判断它值得做？", source: "[AI-PM-BANK]", tags: ["通用"] },
-  { id: "pr3", category: "project", categoryLabel: "项目深挖", text: "你在项目中的真实角色是什么？哪些决策是你主导的？", source: "[AI-PM-BANK]", tags: ["通用"], framework: "Claim-Evidence-Learning" },
-  { id: "pr4", category: "project", categoryLabel: "项目深挖", text: "项目里最难的取舍是什么？你当时有哪些备选方案？", source: "[GENERAL-PM]", tags: ["通用"] },
-  { id: "pr5", category: "project", categoryLabel: "项目深挖", text: "如果让你重做这个项目，你会改哪三个地方？", source: "[AI-PM-BANK]", tags: ["通用"], framework: "Claim-Evidence-Learning" },
-  { id: "ps1", category: "product_sense", categoryLabel: "产品感觉", text: "选一个你常用的腾讯产品，说一个你认为可以优化的点。", source: "[GENERAL-PM]", tags: ["腾讯"], framework: "User-Problem-Solution-Tradeoff" },
-  { id: "ps2", category: "product_sense", categoryLabel: "产品感觉", text: "你如何判断一个功能该不该做？请用用户价值、业务价值、成本风险说明。", source: "[GENERAL-PM]", tags: ["通用"] },
-  { id: "ps3", category: "product_sense", categoryLabel: "产品感觉", text: "哪些需求看起来合理但其实是伪需求？你怎么识别？", source: "[AI-PM-BANK]", tags: ["通用"] },
-  { id: "ps4", category: "product_sense", categoryLabel: "产品感觉", text: "设计一个面向大学生的腾讯产品新功能，你会怎么从需求到方案再到验证？", source: "[GENERAL-PM]", tags: ["腾讯", "校招"], framework: "User-Problem-Solution-Tradeoff" },
-  { id: "dr1", category: "demand_research", categoryLabel: "需求与用户调研", text: "你通常怎么做产品需求调研？最终产出应该是什么？", source: "[AWESOME-PM]", tags: ["通用"] },
-  { id: "dr2", category: "demand_research", categoryLabel: "需求与用户调研", text: "你怎么做用户访谈？如何避免被用户带节奏？", source: "[AWESOME-PM]", tags: ["通用"] },
-  { id: "dr3", category: "demand_research", categoryLabel: "需求与用户调研", text: "调研中老板、销售、客服、研发意见冲突时，你怎么处理？", source: "[AWESOME-PM]", tags: ["通用"], framework: "STAR+" },
-  { id: "dr4", category: "demand_research", categoryLabel: "需求与用户调研", text: "你如何判断需求真伪？如果不做这个需求，代价是什么？", source: "[AWESOME-PM]", tags: ["通用"] },
-  { id: "dm1", category: "data_metrics", categoryLabel: "数据与指标", text: "这个产品的北极星指标是什么？为什么选它？", source: "[AI-PM-BANK]", tags: ["通用", "腾讯"] },
-  { id: "dm2", category: "data_metrics", categoryLabel: "数据与指标", text: "如果产品 DAU 下降 10%，你会如何拆解原因？", source: "[GENERAL-PM]", tags: ["通用", "腾讯"] },
-  { id: "dm3", category: "data_metrics", categoryLabel: "数据与指标", text: "如果用户反馈很好但数据没有提升，你会如何判断？", source: "[GENERAL-PM]", tags: ["通用"] },
-  { id: "dm4", category: "data_metrics", categoryLabel: "数据与指标", text: "你会为一个新功能设计哪些埋点？上线前后分别看什么？", source: "[AI-PM-BANK]", tags: ["通用"] },
-  { id: "dm5", category: "data_metrics", categoryLabel: "数据与指标", text: "留存、转化、活跃、使用深度这些指标分别适合回答什么问题？", source: "[AWESOME-PM]", tags: ["通用"] },
-  { id: "dm6", category: "data_metrics", categoryLabel: "数据与指标", text: "给定用户行为表和订单表，你会如何计算次日留存或转化漏斗？", source: "[AWESOME-PM]", tags: ["通用", "SQL"] },
-  { id: "prio1", category: "prioritization", categoryLabel: "优先级与Roadmap", text: "面对多个需求，你会如何排序？请说出一套可执行标准。", source: "[GENERAL-PM]", tags: ["通用", "腾讯"] },
-  { id: "prio2", category: "prioritization", categoryLabel: "优先级与Roadmap", text: "业务方强烈要求上线，研发资源不够，你怎么决策？", source: "[GENERAL-PM]", tags: ["通用"], framework: "STAR+" },
-  { id: "prio3", category: "prioritization", categoryLabel: "优先级与Roadmap", text: "如果老板要求做一个你认为价值不高的功能，你怎么沟通？", source: "[AI-PM-BANK]", tags: ["通用"], framework: "STAR+" },
-  { id: "prio4", category: "prioritization", categoryLabel: "优先级与Roadmap", text: "MVP 应该做到什么程度？哪些东西第一版不做？", source: "[GENERAL-PM]", tags: ["通用"] },
-  { id: "cf1", category: "cross_functional", categoryLabel: "跨职能协作", text: "你如何和研发沟通需求？如果研发认为实现成本太高怎么办？", source: "[AI-PM-BANK]", tags: ["通用", "腾讯"], framework: "STAR+" },
-  { id: "cf2", category: "cross_functional", categoryLabel: "跨职能协作", text: "设计、研发、运营对方案意见不一致时，你怎么推动共识？", source: "[AI-PM-BANK]", tags: ["通用"], framework: "STAR+" },
-  { id: "cf3", category: "cross_functional", categoryLabel: "跨职能协作", text: "没有职权时，你怎么让别人愿意配合你推进？", source: "[AI-PM-BANK]", tags: ["通用"], framework: "STAR+" },
-  { id: "cf4", category: "cross_functional", categoryLabel: "跨职能协作", text: "讲一次你和团队发生分歧但最终推进成功的经历。", source: "[GENERAL-PM]", tags: ["通用"], framework: "STAR+" },
-  { id: "ai1", category: "ai_product", categoryLabel: "AI产品与RAG", text: "你怎么看 AI 产品和传统产品的区别？", source: "[AI-PM-BANK]", tags: ["ai_pm"] },
-  { id: "ai2", category: "ai_product", categoryLabel: "AI产品与RAG", text: "哪些场景不适合用 AI？请举一个伪需求例子。", source: "[AI-PM-BANK]", tags: ["ai_pm"] },
-  { id: "ai3", category: "ai_product", categoryLabel: "AI产品与RAG", text: "如果做一个知识库问答产品，完整链路应该是什么？", source: "[AI-PM-BANK]", tags: ["ai_pm", "RAG"], framework: "User-Problem-Solution-Tradeoff" },
-  { id: "ai4", category: "ai_product", categoryLabel: "AI产品与RAG", text: "知识库的数据从哪里来？如何保证合规、更新和质量？", source: "[AI-PM-BANK]", tags: ["ai_pm", "RAG"] },
-  { id: "ai5", category: "ai_product", categoryLabel: "AI产品与RAG", text: "AI 幻觉问题如何控制？产品上如何降低事故概率？", source: "[AI-PM-BANK]", tags: ["ai_pm"] },
-  { id: "ai6", category: "ai_product", categoryLabel: "AI产品与RAG", text: "文档切片、向量检索、rerank、top-k 这些会如何影响用户体验？", source: "[AI-PM-BANK]", tags: ["ai_pm", "RAG"] },
-  { id: "ag1", category: "agent", categoryLabel: "Agent与AI工作流", text: "为什么选择 Multi-Agent 而不是单 Agent？分别适用什么场景？", source: "[AI-PM-BANK]", tags: ["ai_pm"] },
-  { id: "ag2", category: "agent", categoryLabel: "Agent与AI工作流", text: "主控 Agent 和子 Agent 如何路由、传递信息、处理失败？", source: "[AI-PM-BANK]", tags: ["ai_pm"] },
-  { id: "ag3", category: "agent", categoryLabel: "Agent与AI工作流", text: "举一个具体智能体例子，说明它如何完成意图理解、任务规划和主动执行。", source: "[AI-PM-BANK]", tags: ["ai_pm"] },
-  { id: "ag4", category: "agent", categoryLabel: "Agent与AI工作流", text: "AI 自动化流程上线前，你会如何做人工审核和兜底？", source: "[GENERAL-PM]", tags: ["ai_pm"] },
-  { id: "ag5", category: "agent", categoryLabel: "Agent与AI工作流", text: "如何区分真正的 Agent 和固定流程自动化？", source: "[AI-PM-BANK]", tags: ["ai_pm"] },
-  { id: "me1", category: "model_evaluation", categoryLabel: "模型选型与Prompt", text: "你用过哪些大模型？如何做模型选型？选择时如何权衡效果、成本、延迟、稳定性？", source: "[AI-PM-BANK]", tags: ["ai_pm"] },
-  { id: "me2", category: "model_evaluation", categoryLabel: "模型选型与Prompt", text: "你如何设计 Prompt？能说一个真实迭代过程吗？如何把模糊业务标准翻译成可执行指令？", source: "[AI-PM-BANK]", tags: ["ai_pm"] },
-  { id: "me3", category: "model_evaluation", categoryLabel: "模型选型与Prompt", text: "你如何搭建 AI 效果评测体系？没有 ground truth 时如何做冷启动评测？", source: "[AI-PM-BANK]", tags: ["ai_pm"] },
-  { id: "me4", category: "model_evaluation", categoryLabel: "模型选型与Prompt", text: "bad case 如何收集、归因和排序？LLM-as-Judge 能不能用，风险是什么？", source: "[AI-PM-BANK]", tags: ["ai_pm"] },
-  { id: "co1", category: "commercialization", categoryLabel: "商业化与增长", text: "你的产品商业模式是什么？变现路径和定价策略如何制定？", source: "[AI-PM-BANK]", tags: ["ai_pm", "增长"] },
-  { id: "co2", category: "commercialization", categoryLabel: "商业化与增长", text: "如果增长数据好但留存差，说明什么？你会如何分析和处理？", source: "[GENERAL-PM]", tags: ["通用", "增长"] },
-  { id: "co3", category: "commercialization", categoryLabel: "商业化与增长", text: "你如何设计一个从冷启动到规模化的增长路径？", source: "[GENERAL-PM]", tags: ["通用"], framework: "User-Problem-Solution-Tradeoff" },
-  { id: "ci1", category: "competitor", categoryLabel: "竞品与行业洞察", text: "你研究过哪些竞品？主打方向、优势和问题分别是什么？", source: "[AI-PM-BANK]", tags: ["通用"] },
-  { id: "ci2", category: "competitor", categoryLabel: "竞品与行业洞察", text: "最近你关注的 AI 技术或产品趋势是什么？为什么重要？", source: "[AI-PM-BANK]", tags: ["ai_pm"] },
-  { id: "ci3", category: "competitor", categoryLabel: "竞品与行业洞察", text: "描述一个 AI 难以替代人类决策的场景，产品应该如何设计人机协作？", source: "[AI-PM-BANK]", tags: ["ai_pm"] },
-  { id: "pe1", category: "personal", categoryLabel: "个人特质", text: "你职业生涯中最大的挫折是什么？你从中学到了什么？", source: "[AI-PM-BANK]", tags: ["通用"], framework: "STAR+" },
-  { id: "pe2", category: "personal", categoryLabel: "个人特质", text: "你未来 3 年的职业规划是什么？这份工作如何帮助你实现这个规划？", source: "[AI-PM-BANK]", tags: ["通用"], framework: "Past-Present-Future" },
+// ─── Fallback local question bank (used only if AI generation fails) ───────
+const FALLBACK_QUESTIONS = [
+  { question: "请做一个 60-90 秒自我介绍，重点讲你和这个岗位最相关的经历。", category: "开场与动机", framework: "Past-Present-Future" },
+  { question: "介绍一个你最有代表性的项目：背景、目标、你的动作、结果。", category: "项目深挖", framework: "STAR+" },
+  { question: "你如何判断一个功能/需求该不该做？", category: "产品感觉", framework: "User-Problem-Solution-Tradeoff" },
+  { question: "如果核心数据指标突然下降，你会如何拆解排查？", category: "数据与指标" },
+  { question: "面对多个需求，你会如何排序优先级？", category: "优先级与Roadmap" },
+  { question: "讲一次你和团队意见不一致但最终推进成功的经历。", category: "跨职能协作", framework: "STAR+" },
+  { question: "你职业生涯中最大的挫折是什么？学到了什么？", category: "个人特质", framework: "STAR+" },
+  { question: "你未来3年的职业规划是什么？这份工作如何帮助你实现？", category: "个人特质", framework: "Past-Present-Future" },
 ];
 
-function filterQuestions(opts: { role?: string; company?: string; count?: number; isAIPM?: boolean; isBigTechCo?: boolean }): Q[] {
-  const { count = 8, isAIPM = false, isBigTechCo = false } = opts;
-  const scored = PM_QUESTIONS.map(q => {
-    let score = Math.random() * 0.4;
-    if (q.category === "opening") score += 2;
-    if (isAIPM && q.tags.includes("ai_pm")) score += 3;
-    if (isAIPM && ["ai_product", "agent", "model_evaluation"].includes(q.category)) score += 2;
-    if (isBigTechCo && q.tags.includes("腾讯")) score += 2;
-    if (isBigTechCo && ["data_metrics", "prioritization", "cross_functional", "product_sense"].includes(q.category)) score += 1;
-    if (!isAIPM && q.tags.includes("ai_pm") && !["opening", "project", "personal"].includes(q.category)) score -= 2;
-    return { q, score };
+function buildFallbackQuestions(count: number) {
+  return FALLBACK_QUESTIONS.slice(0, count).map((q, i) => ({
+    id: `fallback_${i}`,
+    question: q.question,
+    category: q.category,
+    framework: q.framework || null,
+    referenceAnswer: "（AI生成暂不可用，请参考回答框架自行组织答案：" + (q.framework || "STAR+：情境→任务→行动→结果→反思") + "）",
+  }));
+}
+
+// ─── Prompt builders ─────────────────────────────────────────────────────────
+function buildRoleFocus(isAIPM: boolean, isBigTechCo: boolean): string {
+  const parts: string[] = [];
+  if (isAIPM) {
+    parts.push("这是AI产品经理岗位，请优先覆盖：AI产品判断、RAG/知识库、Agent设计、模型选型、Prompt工程、评测体系、AI商业化等题型。避免把面试变成工程/代码测试。");
+  } else {
+    parts.push("重点考察：用户同理心与需求洞察、产品感觉与功能设计、数据思维、优先级与Roadmap、跨职能协作、执行与迭代。");
+  }
+  if (isBigTechCo) {
+    parts.push("目标公司是知名大厂，请适当加入产品critique、数据指标、跨团队协作、需求优先级相关的高频真题风格。");
+  }
+  return parts.join("\n");
+}
+
+function buildJobContext(jobTitle: string, company: string, jobDescription: string, jobRequirements: string): string {
+  return `职位：${jobTitle}${company ? " @ " + company : ""}
+岗位描述：${(jobDescription || "").slice(0, 1200)}
+岗位要求：${(jobRequirements || "").slice(0, 800)}`;
+}
+
+function buildQuickQuestionsPrompt(
+  jobTitle: string, company: string, jobDescription: string, jobRequirements: string,
+  isAIPM: boolean, isBigTechCo: boolean, count: number,
+): { system: string; user: string } {
+  const system = `你是一位资深产品经理面试官和面试教练。请根据给定的岗位信息，生成一批贴合该岗位的模拟面试题，并为每道题提供详细的参考答案。
+
+${buildRoleFocus(isAIPM, isBigTechCo)}
+
+要求：
+1. 题目必须结合岗位的具体描述和要求，不能是泛泛而谈的通用题（比如提到岗位JD中的具体业务、产品、技术栈）
+2. 题目覆盖不同维度：开场自我介绍、项目深挖、产品感觉、数据指标、优先级决策、跨职能协作、个人特质等，尽量不重复维度
+3. 每道题提供一个具体、可操作的参考答案，参考答案应该给出结构化的回答思路和要点（不是泛泛的"要展示你的能力"这种空话），可以适当假设合理的候选人背景来举例
+4. 严格按以下JSON数组格式输出，不要输出任何其他文字、不要使用markdown代码块：
+[{"question":"题目内容","category":"题目类别(如:开场与动机/项目深挖/产品感觉/数据与指标/优先级/跨职能协作/个人特质/AI专项)","framework":"建议使用的回答框架(如STAR+/User-Problem-Solution-Tradeoff/Past-Present-Future，没有合适的可为null)","referenceAnswer":"详细参考答案，200-400字"}]`;
+
+  const user = `${buildJobContext(jobTitle, company, jobDescription, jobRequirements)}
+
+请生成 ${count} 道贴合以上岗位的模拟面试题及参考答案，严格输出JSON数组。`;
+
+  return { system, user };
+}
+
+function buildPersonalizedQuestionsPrompt(
+  jobTitle: string, company: string, jobDescription: string, jobRequirements: string,
+  resumeText: string, isAIPM: boolean, isBigTechCo: boolean, count: number,
+): { system: string; user: string } {
+  const hasResume = !!resumeText && resumeText.trim().length > 0;
+
+  const system = `你是一位专业的产品经理面试教练。请根据岗位信息${hasResume ? "和候选人简历" : ""}，生成一批候选人在面试中大概率会被问到的问题，并给出参考答案。
+
+${buildRoleFocus(isAIPM, isBigTechCo)}
+
+要求：
+1. 题目必须紧扣岗位JD的具体要求和业务场景
+${hasResume
+  ? "2. 结合简历中的项目经历和岗位JD的要求，找出匹配点和差距点，针对性设计问题（比如简历中的某段经历会如何被追问、JD要求但简历中没体现的能力会如何被考察）"
+  : "2. 简历未提供，请仅根据岗位JD的要求和业务场景设计通用但高度相关的问题"}
+3. 每道题给出简短的"为什么会问这道题"的理由（reason字段，结合${hasResume ? "简历与" : ""}JD说明）
+4. 每道题提供详细、结构化、可操作的参考答案${hasResume ? "，如果简历中有相关经历，答案应该基于简历内容组织（不要编造简历中没有的经历，如果简历信息不够具体，就给出通用但专业的回答框架和要点）" : "，给出专业、结构化的回答框架和要点"}
+5. 严格按以下JSON数组格式输出，不要输出任何其他文字、不要使用markdown代码块：
+[{"question":"题目内容","reason":"为什么会问这道题","framework":"建议回答框架或null","referenceAnswer":"详细参考答案，200-400字"}]`;
+
+  const user = `${buildJobContext(jobTitle, company, jobDescription, jobRequirements)}
+${hasResume ? `\n候选人简历：\n${resumeText.slice(0, 3000)}` : "\n（候选人未提供简历，请仅基于岗位信息出题）"}
+
+请生成 ${count} 道题目，严格输出JSON数组。`;
+
+  return { system, user };
+}
+
+function buildFollowupSystemPrompt(
+  jobTitle: string, company: string, question: string, referenceAnswer: string,
+): string {
+  return `你是一位专业的产品经理面试教练，正在针对某一道面试题给候选人做追问式辅导。
+
+面试题：${question}
+参考答案要点：${referenceAnswer}
+岗位：${jobTitle}${company ? " @ " + company : ""}
+
+候选人会针对这道题输入自己的回答或问题，你需要：
+1. 如果候选人提交了完整回答，给出具体反馈（亮点、不足、改进建议），并可以追问一个更深入的问题
+2. 如果候选人只是提出疑问（比如"这道题应该怎么答"），给出针对性的指导
+3. 保持简短聚焦，只讨论这一道题，不要跳到其他话题
+4. 语言：默认中文，候选人用英文时切换英文`;
+}
+
+// ─── JSON parsing helper ────────────────────────────────────────────────────
+function parseJsonArray(text: string): any[] | null {
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return parsed;
+  } catch { /* fall through */ }
+  const match = text.match(/\[[\s\S]*\]/);
+  if (match) {
+    try {
+      const parsed = JSON.parse(match[0]);
+      if (Array.isArray(parsed)) return parsed;
+    } catch { /* ignore */ }
+  }
+  return null;
+}
+
+async function callDeepSeekJSON(apiKey: string, system: string, user: string): Promise<any[] | null> {
+  const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "deepseek-chat",
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      stream: false,
+      max_tokens: 4000,
+      temperature: 0.8,
+    }),
   });
-  scored.sort((a, b) => b.score - a.score);
-  const result: Q[] = [];
-  const catCount: Record<string, number> = {};
-  for (const { q } of scored) {
-    const cat = q.category;
-    catCount[cat] = (catCount[cat] ?? 0);
-    const max = cat === "opening" ? 1 : 2;
-    if (catCount[cat] < max) {
-      result.push(q);
-      catCount[cat]++;
-      if (result.length >= count) break;
-    }
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error("DeepSeek call failed:", text.slice(0, 300));
+    return null;
   }
-  if (result.length < count) {
-    for (const { q } of scored) {
-      if (!result.find(r => r.id === q.id)) {
-        result.push(q);
-        if (result.length >= count) break;
-      }
-    }
-  }
-  return result.slice(0, count);
-}
 
-function buildPMSystemPrompt(jobTitle: string, jobDescription: string, isAIPM: boolean): string {
-  const roleFocus = isAIPM
-    ? `## 角色重点：AI产品经理\n重点考察：AI产品判断、RAG与知识库、Agent设计、模型选型、Prompt工程、评测体系、数据指标、商业化\n避免：把面试变成工程/代码测试。测AI产品直觉，不测代码能力。`
-    : `## 角色重点：产品经理\n重点考察：用户同理心与需求洞察、产品感觉与功能设计、数据思维、优先级与Roadmap、跨职能协作、执行与迭代`;
-
-  return `你是一位专业严格但友善的产品经理面试官，来自一家互联网大厂。
-
-## 面试岗位
-职位：${jobTitle}
-岗位信息：${jobDescription.slice(0, 600)}
-
-${roleFocus}
-
-## Mock Interview Protocol（严格遵守）
-
-核心规则：一次只问一个问题，等候选人回答后再给反馈，再问下一题。
-
-面试流程：
-1. 简短介绍自己（一句话），说明今天的面试类型和评估重点
-2. 提出第一个问题（仅一个）
-3. 等候选人回答
-4. 给出反馈（严格按以下格式）：
-
-评分：X/5（一句理由）
-亮点：回答中最有价值的地方
-不足：最主要的弱点或缺失
-改进思路：更好的结构或参考答案方向
-追问：一个跟进问题
-
-5. 重复步骤3-4，完成5-8个问题后生成总结报告
-
-## 评分标准（来自evaluation-rubric.md）
-5/5：清晰、具体、有数据支撑、体现产品判断、反思深刻
-4/5：基本完整，有1-2处可加强
-3/5：思路正确但表达笼统或缺少证据
-2/5：有想法但结构混乱或脱离实际
-1/5：答非所问或明显缺乏产品思维
-
-## 回答框架提示（answer-frameworks.md）
-行为题：STAR+（情境→任务→行动→结果→反思）
-产品题：用户-问题-方案-取舍（定义用户→识别痛点→提出选项→选择并说明取舍→验证方式）
-数据题：拆分指标→定位原因→提出假设→设计验证
-开场题：Past-Present-Future
-
-语言：默认中文。候选人用英文时切换英文。
-
-现在开始面试，先简短自我介绍，然后提出第一道问题。`;
-}
-
-function buildGeneralSystemPrompt(jobTitle: string, jobDescription: string): string {
-  return `你是一位专业且友好的面试官，正在进行实习岗位的模拟面试。
-
-岗位信息：
-职位：${jobTitle}
-${jobDescription.slice(0, 800)}
-
-面试要求：
-1. 每次只提出1个问题，等候选人回答后给反馈，再问下一题
-2. 反馈格式：评分(X/5) + 亮点 + 不足 + 改进建议 + 追问
-3. 完成5-8题后生成总结报告
-4. 语气专业友好，给出建设性反馈
-
-现在开始面试，先简短自我介绍，然后提出第一道问题。`;
-}
-
-function buildPrepSystemPrompt(role: string, company: string, isAIPM: boolean): string {
-  const aiSection = isAIPM
-    ? "\n【AI产品经理专项】\n重点分析JD中涉及的AI技术关键词：RAG、Agent、Prompt、评测体系、模型选型、AI商业化\n为每个关键词找简历中的相关经历证据或标记为Gap"
-    : "";
-
-  return `你是一位专业的产品经理面试教练，正在帮助候选人准备${company ? company + " " : ""}${role}岗位的面试。
-
-请根据候选人提供的简历和JD，生成一份完整的个性化面试准备方案。
-
-【输出格式】严格按以下结构输出，每部分用 ## 标题分隔：
-
-## JD Signal Map（JD关键信号）
-列出JD中最重要的3-5个能力要求信号，每条说明：这个信号对应什么考察维度
-
-## Resume Evidence Map（简历证据匹配）
-将JD的每个信号映射到简历中的最佳证据，格式：
-- [JD信号] → [简历中的对应项目/经历] → [可提炼的核心论点]
-
-## Gap Risks（差距风险）
-列出2-3个简历中缺失但JD要求的能力，建议如何弥补或如何在面试中应对
-
-## Likely Questions（高概率面试题）
-根据JD信号和简历，列出5-8道最可能被问到的问题，每道题说明为什么会被问
-${aiSection}
-
-## Story Bank（故事素材库）
-从简历中提炼3-4个最适合用于面试的核心故事，每个故事用STAR+框架简要列出：
-- 情境(S): 一句话背景
-- 任务(T): 你的职责目标
-- 行动(A): 你的关键决策和行动
-- 结果(R): 可量化的成果
-- 反思(+): 学到什么
-
-## Priority Drills（优先练习清单）
-列出3-5道最需要重点准备的题目，标明为什么这些题目高优先级
-
-【注意】
-- 紧扣简历和JD内容，不要编造简历中没有的经历
-- 用中文输出
-- 分析要具体，避免泛泛而谈`;
+  const result = await response.json();
+  const content = result.choices?.[0]?.message?.content || "";
+  return parseJsonArray(content);
 }
 
 Deno.serve(async (req) => {
@@ -260,49 +194,99 @@ Deno.serve(async (req) => {
     if (!DEEPSEEK_API_KEY) throw new Error("DeepSeek API key not configured");
 
     const body = await req.json();
-    const { mode = "mock", jobTitle = "", jobCategory = "", jobDescription = "", company = "", messages = [] } = body;
+    const {
+      mode = "quick_questions",
+      jobTitle = "",
+      jobCategory = "",
+      jobDescription = "",
+      jobRequirements = "",
+      company = "",
+      count = 8,
+    } = body;
 
     console.log(`[interview] mode=${mode} title="${jobTitle}" category="${jobCategory}"`);
 
-    if (mode === "questions") {
-      const { role = jobTitle, count = 8 } = body;
-      const aiPM = isAIPMRole(role, jobCategory);
-      const bigTech = isBigTech(company);
-      const questions = filterQuestions({ role, company, count: Number(count), isAIPM: aiPM, isBigTechCo: bigTech });
-      return new Response(JSON.stringify({ questions, isAIPM: aiPM, isBigTech: bigTech }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const pmRole = isPMRole(jobTitle, jobCategory);
+    const aiPM = isAIPMRole(jobTitle, jobCategory);
+    const bigTech = isBigTech(company);
+
+    // ── Mode: quick_questions — one-shot AI-generated question bank + answers ──
+    if (mode === "quick_questions") {
+      const { system, user } = buildQuickQuestionsPrompt(
+        jobTitle, company, jobDescription, jobRequirements, aiPM, bigTech, Number(count),
+      );
+      const items = await callDeepSeekJSON(DEEPSEEK_API_KEY, system, user);
+
+      if (!items || items.length === 0) {
+        console.log("[interview] quick_questions AI generation failed, using fallback");
+        return new Response(
+          JSON.stringify({ questions: buildFallbackQuestions(Number(count)), isAIPM: aiPM, isBigTech: bigTech, fallback: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      const questions = items.map((item, i) => ({
+        id: `q_${i}`,
+        question: item.question || "",
+        category: item.category || "综合",
+        framework: item.framework || null,
+        referenceAnswer: item.referenceAnswer || "",
+      })).filter(q => q.question);
+
+      return new Response(
+        JSON.stringify({ questions, isAIPM: aiPM, isBigTech: bigTech }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
-    if (mode === "prep") {
-      const { resumeText = "", jdText = "", role = jobTitle } = body;
-      if (!resumeText || !jdText) {
-        return new Response(JSON.stringify({ error: "resumeText and jdText are required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+    // ── Mode: personalized_questions — resume(optional) + JD -> tailored Qs ──
+    if (mode === "personalized_questions") {
+      const { resumeText = "" } = body;
+      const { system, user } = buildPersonalizedQuestionsPrompt(
+        jobTitle, company, jobDescription, jobRequirements, resumeText, aiPM, bigTech, Number(count) || 6,
+      );
+      const items = await callDeepSeekJSON(DEEPSEEK_API_KEY, system, user);
+
+      if (!items || items.length === 0) {
+        return new Response(
+          JSON.stringify({ error: "AI生成失败，请重试" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
-      const aiPM = isAIPMRole(role, jobCategory);
-      const systemPrompt = buildPrepSystemPrompt(role, company, aiPM);
-      const userMessage = `【岗位】${role}${company ? " @ " + company : ""}\n\n【岗位JD】\n${jdText.slice(0, 3000)}\n\n【简历】\n${resumeText.slice(0, 3000)}\n\n请生成完整的个性化面试准备方案。`;
+
+      const questions = items.map((item, i) => ({
+        id: `pq_${i}`,
+        question: item.question || "",
+        reason: item.reason || "",
+        framework: item.framework || null,
+        referenceAnswer: item.referenceAnswer || "",
+      })).filter(q => q.question);
+
+      return new Response(
+        JSON.stringify({ questions, isAIPM: aiPM, isBigTech: bigTech, hasResume: !!resumeText }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // ── Mode: followup — streaming per-question follow-up chat ─────────────
+    if (mode === "followup") {
+      const { question = "", referenceAnswer = "", messages = [] } = body;
+      const systemPrompt = buildFollowupSystemPrompt(jobTitle, company, question, referenceAnswer);
 
       const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
         method: "POST",
         headers: { "Authorization": `Bearer ${DEEPSEEK_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "deepseek-chat",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userMessage },
-          ],
+          messages: [{ role: "system", content: systemPrompt }, ...messages],
           stream: true,
-          max_tokens: 4000,
+          max_tokens: 2000,
         }),
       });
 
       if (!response.ok) {
         const text = await response.text();
-        console.error("DeepSeek prep error:", text.slice(0, 300));
+        console.error("DeepSeek followup error:", text.slice(0, 300));
         const errorSSE = `data: ${JSON.stringify({ type: "error", error: { type: "api_error", message: "AI服务错误，请重试" } })}\n\n`;
         return new Response(errorSSE, { status: 500, headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
       }
@@ -312,39 +296,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Default: mock
-    const pmRole = isPMRole(jobTitle, jobCategory);
-    const aiPM = isAIPMRole(jobTitle, jobCategory);
-    const systemPrompt = pmRole
-      ? buildPMSystemPrompt(jobTitle, jobDescription, aiPM)
-      : buildGeneralSystemPrompt(jobTitle, jobDescription);
-    const model = pmRole ? "deepseek-reasoner" : "deepseek-chat";
-    console.log(`[interview] mock model: ${model} isPM=${pmRole} isAIPM=${aiPM}`);
-
-    const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${DEEPSEEK_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "system", content: systemPrompt }, ...messages],
-        stream: true,
-        max_tokens: 4000,
-      }),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("DeepSeek error:", text.slice(0, 300));
-      const errorSSE = `data: ${JSON.stringify({ type: "error", error: { type: "api_error", message: "AI服务错误，请重试" } })}\n\n`;
-      return new Response(errorSSE, { status: response.status, headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
-    }
-
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
-    });
+    return new Response(
+      JSON.stringify({ error: "unknown mode" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
 
   } catch (error: any) {
-    const errorSSE = `data: ${JSON.stringify({ type: "error", error: { type: "api_error", message: error.message } })}\n\n`;
-    return new Response(errorSSE, { status: 500, headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+    console.error("[interview] error:", error.message);
+    return new Response(
+      JSON.stringify({ error: error.message || "服务错误" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });

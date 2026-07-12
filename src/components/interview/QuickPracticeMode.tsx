@@ -4,51 +4,61 @@ import { useQuickPractice } from '@/hooks/use-quick-practice';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle2, XCircle, SkipForward, Lightbulb, RefreshCw, ArrowLeft, Trophy } from 'lucide-react';
+import {
+  CheckCircle2, XCircle, SkipForward, ChevronDown, ChevronRight,
+  RefreshCw, ArrowLeft, Trophy, Sparkles, Lightbulb,
+} from 'lucide-react';
 import { FRAMEWORK_DESCRIPTIONS } from '@/lib/pm-question-bank';
+import { cn } from '@/lib/utils';
 
 interface QuickPracticeModeProps {
-  job: Job;
+  job: Job & { requirements?: string | null };
   onBack: () => void;
 }
 
 export function QuickPracticeMode({ job, onBack }: QuickPracticeModeProps) {
   const {
     questions,
-    currentQuestion,
-    currentIndex,
+    expandedIds,
     ratings,
     isAIPM,
     isLoading,
     error,
-    isShowingHint,
+    isFallback,
     isComplete,
     masteredCount,
     needsPracticeCount,
+    ratedCount,
     fetchQuestions,
+    toggleExpand,
     rateQuestion,
-    toggleHint,
     reset,
-  } = useQuickPractice(job.title, job.category?.name ?? '', job.company ?? '');
+  } = useQuickPractice(
+    job.title,
+    job.category?.name ?? '',
+    job.company ?? '',
+    job.description ?? '',
+    job.requirements ?? '',
+  );
 
   useEffect(() => {
     fetchQuestions(8);
-  }, [fetchQuestions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (isLoading) {
     return (
       <div className="flex-1 p-6 max-w-2xl mx-auto space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-2 w-full" />
-        <Skeleton className="h-48 w-full" />
-        <div className="flex gap-3">
-          <Skeleton className="h-10 flex-1" />
-          <Skeleton className="h-10 flex-1" />
-          <Skeleton className="h-10 flex-1" />
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+          <Sparkles className="h-4 w-4 animate-pulse" />
+          AI 正在为该岗位生成定制题目...
         </div>
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
       </div>
     );
   }
@@ -64,7 +74,7 @@ export function QuickPracticeMode({ job, onBack }: QuickPracticeModeProps) {
     );
   }
 
-  // Summary screen
+  // Summary screen once all questions are rated
   if (isComplete) {
     const needsPracticeList = questions.filter(q => ratings[q.id] === 'needs_practice');
     return (
@@ -108,8 +118,8 @@ export function QuickPracticeMode({ job, onBack }: QuickPracticeModeProps) {
             <div className="space-y-2">
               {needsPracticeList.map(q => (
                 <div key={q.id} className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
-                  <p className="text-sm">{q.text}</p>
-                  <Badge variant="outline" className="mt-2 text-xs">{q.categoryLabel}</Badge>
+                  <p className="text-sm">{q.question}</p>
+                  <Badge variant="outline" className="mt-2 text-xs">{q.category}</Badge>
                 </div>
               ))}
             </div>
@@ -123,96 +133,102 @@ export function QuickPracticeMode({ job, onBack }: QuickPracticeModeProps) {
           </Button>
           <Button className="flex-1" onClick={() => { reset(); fetchQuestions(8); }}>
             <RefreshCw className="h-4 w-4 mr-2" />
-            再练一组
+            换一批题目
           </Button>
         </div>
       </div>
     );
   }
 
-  if (!currentQuestion) return null;
-
-  const progress = questions.length > 0 ? (currentIndex / questions.length) * 100 : 0;
-  const frameworkDesc = currentQuestion.framework ? FRAMEWORK_DESCRIPTIONS[currentQuestion.framework] : null;
-
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      <div className="max-w-2xl mx-auto space-y-5">
-        {/* Progress */}
-        <div>
-          <div className="flex justify-between text-sm text-muted-foreground mb-2">
-            <span>第 {currentIndex + 1} 题 / 共 {questions.length} 题</span>
-            <div className="flex gap-2">
-              {isAIPM && <Badge variant="secondary" className="text-xs">AI PM 专项</Badge>}
-              <span>{currentQuestion.categoryLabel}</span>
-            </div>
+      <div className="max-w-2xl mx-auto space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>已完成 {ratedCount} / {questions.length} 题</span>
+            {isAIPM && <Badge variant="secondary" className="text-xs">AI PM 专项</Badge>}
+            {isFallback && <Badge variant="outline" className="text-xs">备用题库</Badge>}
           </div>
-          <Progress value={progress} className="h-2" />
+          <Button variant="ghost" size="sm" onClick={() => { reset(); fetchQuestions(8); }}>
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            换一批
+          </Button>
         </div>
 
-        {/* Question Card */}
-        <Card className="border-primary/20">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3 mb-4">
-              <Badge variant="outline" className="shrink-0 mt-0.5">{currentQuestion.source}</Badge>
-            </div>
-            <p className="text-lg font-medium leading-relaxed">{currentQuestion.text}</p>
+        {questions.map((q) => {
+          const isExpanded = expandedIds.has(q.id);
+          const rating = ratings[q.id];
+          const frameworkDesc = q.framework ? FRAMEWORK_DESCRIPTIONS[q.framework] : null;
 
-            {/* Hint toggle */}
-            {currentQuestion.framework && (
-              <div className="mt-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleHint}
-                  className="text-muted-foreground h-8 px-2"
-                >
-                  <Lightbulb className="h-3.5 w-3.5 mr-1.5" />
-                  {isShowingHint ? '收起回答框架' : '查看回答框架'}
-                </Button>
-                {isShowingHint && frameworkDesc && (
-                  <div className="mt-2 p-3 rounded-md bg-muted text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">{currentQuestion.framework}：</span>
-                    {frameworkDesc}
-                  </div>
+          return (
+            <Card key={q.id} className={cn('border-border/60', rating && 'opacity-70')}>
+              <button
+                className="w-full text-left px-5 py-4 flex items-start gap-3"
+                onClick={() => toggleExpand(q.id)}
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
                 )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <Badge variant="outline" className="text-xs">{q.category}</Badge>
+                    {rating === 'mastered' && <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />}
+                    {rating === 'needs_practice' && <XCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />}
+                    {rating === 'skipped' && <SkipForward className="h-3.5 w-3.5 text-muted-foreground" />}
+                  </div>
+                  <p className="text-sm font-medium leading-relaxed">{q.question}</p>
+                </div>
+              </button>
 
-        {/* Think note */}
-        <p className="text-sm text-muted-foreground text-center">
-          先在脑子里或纸上组织你的回答，然后评估掌握程度
-        </p>
+              {isExpanded && (
+                <CardContent className="pt-0 pb-5 pl-12 space-y-4">
+                  {frameworkDesc && (
+                    <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <Lightbulb className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <span><span className="font-medium text-foreground">{q.framework}：</span>{frameworkDesc}</span>
+                    </div>
+                  )}
 
-        {/* Rating buttons */}
-        <div className="grid grid-cols-3 gap-3">
-          <Button
-            variant="outline"
-            className="flex-col h-auto py-3 gap-1 border-green-300 hover:bg-green-50 hover:border-green-400 dark:border-green-800 dark:hover:bg-green-950/20"
-            onClick={() => rateQuestion(currentQuestion.id, 'mastered')}
-          >
-            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-            <span className="text-xs text-green-700 dark:text-green-300 font-medium">掌握</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-col h-auto py-3 gap-1 border-amber-300 hover:bg-amber-50 hover:border-amber-400 dark:border-amber-800 dark:hover:bg-amber-950/20"
-            onClick={() => rateQuestion(currentQuestion.id, 'needs_practice')}
-          >
-            <XCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-            <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">需要练习</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-col h-auto py-3 gap-1"
-            onClick={() => rateQuestion(currentQuestion.id, 'skipped')}
-          >
-            <SkipForward className="h-5 w-5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground font-medium">跳过</span>
-          </Button>
-        </div>
+                  <div className="p-3 rounded-md bg-muted text-sm leading-relaxed whitespace-pre-wrap">
+                    <p className="text-xs font-semibold text-muted-foreground mb-1.5">参考答案</p>
+                    {q.referenceAnswer}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-green-300 hover:bg-green-50 hover:border-green-400 dark:border-green-800 dark:hover:bg-green-950/20"
+                      onClick={() => rateQuestion(q.id, 'mastered')}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-green-600 dark:text-green-400" />
+                      掌握
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-amber-300 hover:bg-amber-50 hover:border-amber-400 dark:border-amber-800 dark:hover:bg-amber-950/20"
+                      onClick={() => rateQuestion(q.id, 'needs_practice')}
+                    >
+                      <XCircle className="h-3.5 w-3.5 mr-1.5 text-amber-600 dark:text-amber-400" />
+                      需要练习
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => rateQuestion(q.id, 'skipped')}
+                    >
+                      <SkipForward className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                      跳过
+                    </Button>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

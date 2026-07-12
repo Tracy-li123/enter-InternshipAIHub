@@ -2,10 +2,10 @@ import { Job } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Zap, BrainCircuit, FileText, ChevronRight } from 'lucide-react';
+import { Zap, FileText, ChevronRight } from 'lucide-react';
 import { isPMRoleClient, isAIPMRoleClient } from '@/lib/pm-question-bank';
 
-export type InterviewMode = 'quick' | 'ai_mock' | 'prep';
+export type InterviewMode = 'quick' | 'personalized';
 
 interface InterviewSetupProps {
   job: Job;
@@ -22,30 +22,20 @@ export function InterviewSetup({ job, onSelectMode }: InterviewSetupProps) {
       icon: Zap,
       title: '快速练习',
       badge: null,
-      description: '不调用AI，速度快，适合刷题和熟悉题型。每次随机抽取8道题，逐题练习，自我评估。',
-      features: ['即时加载，无需等待', '产品经理专属题库', '按自己节奏刷题'],
+      description: 'AI 针对该岗位实时生成定制题目和参考答案，每次换一批都不一样，适合快速刷题、熟悉题型。',
+      features: ['针对岗位定制出题', '每题都有参考答案', '按自己节奏刷题'],
       cta: '开始快速练习',
       variant: 'outline' as const,
     },
     {
-      key: 'ai_mock' as InterviewMode,
-      icon: BrainCircuit,
-      title: 'AI 面试官',
-      badge: '推荐',
-      description: '调用DeepSeek，一问一答模拟真实面试，每道题给出评分、亮点、不足和追问。',
-      features: ['评分 X/5 + 详细反馈', '追问和改写建议', '最后生成总结报告'],
-      cta: '开始 AI 模拟面试',
-      variant: 'default' as const,
-    },
-    {
-      key: 'prep' as InterviewMode,
+      key: 'personalized' as InterviewMode,
       icon: FileText,
-      title: '简历 + JD 个性化准备',
-      badge: null,
-      description: '上传简历和岗位JD（.docx格式），AI生成专属准备方案：信号图谱、证据匹配、高概率题目、故事素材库。',
-      features: ['JD Signal Map', '简历证据匹配', '高概率题 + 故事库'],
-      cta: '上传简历开始准备',
-      variant: 'outline' as const,
+      title: '个性化提问',
+      badge: '推荐',
+      description: '结合岗位JD（可选上传简历），AI生成可能会被问到的问题和参考答案，支持针对每道题继续追问、完善回答。',
+      features: ['可选上传简历匹配JD', '题目 + 参考答案', '逐题追问完善'],
+      cta: '开始个性化提问',
+      variant: 'default' as const,
     },
   ];
 
@@ -57,7 +47,7 @@ export function InterviewSetup({ job, onSelectMode }: InterviewSetupProps) {
           <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
             <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
             <span className="text-sm font-medium text-primary">
-              {isAIPM ? 'AI产品经理专属题库已启用' : '产品经理专属题库已启用'}
+              {isAIPM ? 'AI产品经理专属出题已启用' : '产品经理专属出题已启用'}
             </span>
             {isAIPM && (
               <div className="flex gap-1 ml-auto flex-wrap">
@@ -120,12 +110,6 @@ export function InterviewSetup({ job, onSelectMode }: InterviewSetupProps) {
             </Card>
           ))}
         </div>
-
-        {/* Skill Attribution */}
-        <p className="text-xs text-muted-foreground text-center">
-          题库来源：non-technical-interview-coach skill
-          · 支持产品经理、AI PM、产品运营等岗位
-        </p>
       </div>
     </div>
   );
