@@ -64,6 +64,31 @@ interface FetchResult {
   errorReason?: string;
 }
 
+/**
+ * Next.js SSR/SSG pages embed a <script id="__NEXT_DATA__"> tag with the
+ * server-rendered props as JSON. If pageProps has real data (not an empty
+ * object), that's far cleaner and more reliable than scraping visible text.
+ * Pure client-side-rendered Next.js pages (e.g. pddglobalhr.com) leave
+ * pageProps empty — data only arrives after a signed API call in the
+ * browser, which we cannot replicate server-side, so we just return null
+ * and let the normal fallback chain continue.
+ */
+function extractNextData(html: string): string | null {
+  const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if (!match) return null;
+  try {
+    const json = JSON.parse(match[1]);
+    const pageProps = json?.props?.pageProps;
+    if (!pageProps || Object.keys(pageProps).length === 0) return null;
+    const text = JSON.stringify(pageProps);
+    if (text.length < 200) return null;
+    console.log("extracted __NEXT_DATA__ pageProps, length:", text.length);
+    return text;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchPageContent(url: string): Promise<FetchResult> {
   try {
     console.log("trying direct fetch...");
@@ -77,6 +102,13 @@ async function fetchPageContent(url: string): Promise<FetchResult> {
     });
     if (res.ok) {
       const html = await res.text();
+
+      // Prefer structured Next.js SSR data when available
+      const nextData = extractNextData(html);
+      if (nextData) {
+        return { content: nextData };
+      }
+
       const text = html
         .replace(/<script[\s\S]*?<\/script>/gi, "")
         .replace(/<style[\s\S]*?<\/style>/gi, "")
