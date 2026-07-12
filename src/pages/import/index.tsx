@@ -89,6 +89,12 @@ export default function ImportPage() {
     setIsLoading(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('请先登录后再添加岗位');
+        return;
+      }
+
       const { data: categories } = await supabase.from('job_categories').select('*');
       const categoryId = categories?.[0]?.id;
 
@@ -99,6 +105,7 @@ export default function ImportPage() {
         description: manualForm.description.trim(),
         source_url: manualForm.sourceUrl.trim() || null,
         category_id: categoryId,
+        user_id: user.id,
         published_at: new Date().toISOString(),
       });
 
@@ -107,6 +114,7 @@ export default function ImportPage() {
       toast.success('✨ 岗位添加成功');
       navigate('/');
     } catch (err) {
+      console.error('手动添加岗位失败:', err);
       toast.error('添加失败，请重试');
     } finally {
       setIsLoading(false);
