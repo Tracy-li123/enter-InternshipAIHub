@@ -24,9 +24,12 @@ export interface Job {
   title: string;
   company: string;
   description: string | null;
+  requirements: string | null;
   source_url: string | null;
   location: string | null;
   category_id: string | null;
+  user_id: string | null;
+  referral_code: string | null;
   published_at: string;
   scraped_at: string;
   created_at: string;

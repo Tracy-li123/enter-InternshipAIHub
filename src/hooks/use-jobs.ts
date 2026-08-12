@@ -312,4 +312,49 @@ export function useUpdateJobStatus() {
   });
 }
 
+/**
+ * 编辑岗位内容（标题/公司/地点/分类/描述/要求）— 仅添加该岗位的人（RLS 校验）
+ */
+export function useUpdateJob() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      jobId,
+      updates,
+    }: {
+      jobId: string;
+      updates: Partial<Pick<Job, 'title' | 'company' | 'location' | 'category_id' | 'description' | 'requirements'>>;
+    }) => {
+      const { error } = await supabase.from('jobs').update(updates).eq('id', jobId);
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['job', variables.jobId] });
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+    },
+  });
+}
+
+/**
+ * 填写/更新内推码 — 组内所有成员均可操作（数据库触发器限定仅可修改此字段）
+ */
+export function useUpdateReferralCode() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ jobId, referralCode }: { jobId: string; referralCode: string }) => {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ referral_code: referralCode })
+        .eq('id', jobId);
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['job', variables.jobId] });
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+    },
+  });
+}
+
 

@@ -22,6 +22,7 @@ export type Database = {
           created_at: string
           error_message: string | null
           id: string
+          lyrics: string | null
           lyrics_mode: string | null
           mood: string
           scene: string
@@ -39,6 +40,7 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
+          lyrics?: string | null
           lyrics_mode?: string | null
           mood: string
           scene: string
@@ -56,6 +58,7 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
+          lyrics?: string | null
           lyrics_mode?: string | null
           mood?: string
           scene?: string
@@ -219,6 +222,7 @@ export type Database = {
           is_shared: boolean
           location: string | null
           published_at: string
+          referral_code: string | null
           requirements: string | null
           scraped_at: string
           shared_to_group_id: string | null
@@ -236,6 +240,7 @@ export type Database = {
           is_shared?: boolean
           location?: string | null
           published_at?: string
+          referral_code?: string | null
           requirements?: string | null
           scraped_at?: string
           shared_to_group_id?: string | null
@@ -253,6 +258,7 @@ export type Database = {
           is_shared?: boolean
           location?: string | null
           published_at?: string
+          referral_code?: string | null
           requirements?: string | null
           scraped_at?: string
           shared_to_group_id?: string | null

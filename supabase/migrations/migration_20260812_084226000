@@ -1,0 +1,39 @@
+-- Add referral code column for group-wide 内推码 collaboration
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS referral_code text;
+
+-- Trigger: non-owners (but same-group members, per RLS below) may only change referral_code.
+-- All other columns get reverted to their previous value, regardless of what the caller sent.
+CREATE OR REPLACE FUNCTION restrict_job_update_to_referral_code()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF auth.uid() IS DISTINCT FROM OLD.user_id THEN
+    NEW.title := OLD.title;
+    NEW.company := OLD.company;
+    NEW.description := OLD.description;
+    NEW.requirements := OLD.requirements;
+    NEW.location := OLD.location;
+    NEW.category_id := OLD.category_id;
+    NEW.source_url := OLD.source_url;
+    NEW.published_at := OLD.published_at;
+    NEW.scraped_at := OLD.scraped_at;
+    NEW.deleted_at := OLD.deleted_at;
+    NEW.user_id := OLD.user_id;
+    NEW.is_shared := OLD.is_shared;
+    NEW.shared_to_group_id := OLD.shared_to_group_id;
+    NEW.created_at := OLD.created_at;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_restrict_job_update_to_referral_code ON jobs;
+CREATE TRIGGER trg_restrict_job_update_to_referral_code
+  BEFORE UPDATE ON jobs
+  FOR EACH ROW EXECUTE FUNCTION restrict_job_update_to_referral_code();
+
+-- Allow same-group members to attempt an update too (trigger above limits them to referral_code)
+DROP POLICY IF EXISTS "jobs_update" ON jobs;
+CREATE POLICY "jobs_update" ON jobs
+  FOR UPDATE
+  USING (user_id = auth.uid() OR is_same_group_member(user_id))
+  WITH CHECK (user_id = auth.uid() OR is_same_group_member(user_id));
