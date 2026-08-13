@@ -1,0 +1,24 @@
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS group_note text;
+
+CREATE OR REPLACE FUNCTION restrict_job_update_to_referral_code()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF auth.uid() IS DISTINCT FROM OLD.user_id THEN
+    NEW.title := OLD.title;
+    NEW.company := OLD.company;
+    NEW.description := OLD.description;
+    NEW.requirements := OLD.requirements;
+    NEW.location := OLD.location;
+    NEW.category_id := OLD.category_id;
+    NEW.source_url := OLD.source_url;
+    NEW.published_at := OLD.published_at;
+    NEW.scraped_at := OLD.scraped_at;
+    NEW.deleted_at := OLD.deleted_at;
+    NEW.user_id := OLD.user_id;
+    NEW.is_shared := OLD.is_shared;
+    NEW.shared_to_group_id := OLD.shared_to_group_id;
+    NEW.created_at := OLD.created_at;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;

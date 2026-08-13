@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   ArrowLeft, ExternalLink, Bookmark, Brain, BookmarkCheck, Trash2, RotateCcw,
-  Pencil, Check, X, Ticket,
+  Pencil, Check, X, Ticket, StickyNote,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState, useEffect } from 'react';
@@ -17,7 +17,7 @@ import { statusLabelMap } from '@/lib/status-colors';
 import { formatRelativeTime } from '@/lib/date-utils';
 import { toast } from 'sonner';
 import { JobStatus } from '@/types/job';
-import { useDeleteJob, useRestoreJob, useToggleBookmark, useUpdateJob, useUpdateReferralCode } from '@/hooks/use-jobs';
+import { useDeleteJob, useRestoreJob, useToggleBookmark, useUpdateJob, useUpdateReferralCode, useUpdateGroupNote } from '@/hooks/use-jobs';
 import { useJobCategories } from '@/hooks/use-job-categories';
 import { useAuth } from '@/hooks/use-auth';
 import { JobDescriptionRenderer } from '@/components/job/JobDescriptionRenderer';
@@ -40,9 +40,14 @@ export default function JobDetail() {
   const [isEditingReferral, setIsEditingReferral] = useState(false);
   const [referralInput, setReferralInput] = useState('');
 
+  // 备注
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [noteInput, setNoteInput] = useState('');
+
   const { data: categories } = useJobCategories();
   const updateJobMutation = useUpdateJob();
   const updateReferralMutation = useUpdateReferralCode();
+  const updateNoteMutation = useUpdateGroupNote();
 
   // 获取岗位详情
   const { data: job, isLoading } = useQuery({
@@ -96,6 +101,7 @@ export default function JobDetail() {
         requirements: job.requirements || '',
       });
       setReferralInput(job.referral_code || '');
+      setNoteInput(job.group_note || '');
     }
   }, [job]);
 
@@ -232,6 +238,21 @@ export default function JobDetail() {
       await updateReferralMutation.mutateAsync({ jobId: jobId!, referralCode: referralInput.trim() });
       toast.success('内推码已更新，组内成员均可查看');
       setIsEditingReferral(false);
+    } catch {
+      toast.error('更新失败，请重试');
+    }
+  };
+
+  // 备注：组内任何人都可以填写/更新
+  const handleSaveNote = async () => {
+    if (!noteInput.trim()) {
+      toast.error('请输入备注');
+      return;
+    }
+    try {
+      await updateNoteMutation.mutateAsync({ jobId: jobId!, groupNote: noteInput.trim() });
+      toast.success('备注已更新，组内成员均可查看');
+      setIsEditingNote(false);
     } catch {
       toast.error('更新失败，请重试');
     }
@@ -455,48 +476,92 @@ export default function JobDetail() {
           </CardContent>
         </Card>
 
-        {/* 内推码 — 组内所有人可填写，填写后所有人可见 */}
+        {/* 内推码 / 备注 — 组内所有人可填写，填写后所有人可见 */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Ticket className="h-4 w-4 text-primary" />
-              内推码
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isEditingReferral ? (
-              <div className="flex gap-2">
-                <Input
-                  value={referralInput}
-                  onChange={(e) => setReferralInput(e.target.value)}
-                  placeholder="填写内推码，组内成员都能看到"
-                  autoFocus
-                />
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={() => { setIsEditingReferral(false); setReferralInput(job.referral_code || ''); }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <Button size="icon" onClick={handleSaveReferral} disabled={updateReferralMutation.isPending}>
-                  <Check className="h-4 w-4" />
-                </Button>
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* 内推码 */}
+              <div>
+                <p className="flex items-center gap-2 text-sm font-medium mb-3">
+                  <Ticket className="h-4 w-4 text-primary" />
+                  内推码
+                </p>
+                {isEditingReferral ? (
+                  <div className="flex gap-2">
+                    <Input
+                      value={referralInput}
+                      onChange={(e) => setReferralInput(e.target.value)}
+                      placeholder="填写内推码，组内成员都能看到"
+                      autoFocus
+                    />
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => { setIsEditingReferral(false); setReferralInput(job.referral_code || ''); }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" onClick={handleSaveReferral} disabled={updateReferralMutation.isPending}>
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : job.referral_code ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-mono bg-muted px-3 py-2 rounded-md flex-1">{job.referral_code}</p>
+                    <Button size="sm" variant="ghost" className="gap-1.5 shrink-0" onClick={() => setIsEditingReferral(true)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                      修改
+                    </Button>
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setIsEditingReferral(true)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                    填写内推码
+                  </Button>
+                )}
               </div>
-            ) : job.referral_code ? (
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-mono bg-muted px-3 py-2 rounded-md flex-1">{job.referral_code}</p>
-                <Button size="sm" variant="ghost" className="gap-1.5 shrink-0" onClick={() => setIsEditingReferral(true)}>
-                  <Pencil className="h-3.5 w-3.5" />
-                  修改
-                </Button>
+
+              {/* 备注 */}
+              <div>
+                <p className="flex items-center gap-2 text-sm font-medium mb-3">
+                  <StickyNote className="h-4 w-4 text-primary" />
+                  备注
+                </p>
+                {isEditingNote ? (
+                  <div className="flex gap-2">
+                    <Input
+                      value={noteInput}
+                      onChange={(e) => setNoteInput(e.target.value)}
+                      placeholder="填写备注，组内成员都能看到"
+                      autoFocus
+                    />
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => { setIsEditingNote(false); setNoteInput(job.group_note || ''); }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" onClick={handleSaveNote} disabled={updateNoteMutation.isPending}>
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : job.group_note ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm bg-muted px-3 py-2 rounded-md flex-1">{job.group_note}</p>
+                    <Button size="sm" variant="ghost" className="gap-1.5 shrink-0" onClick={() => setIsEditingNote(true)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                      修改
+                    </Button>
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setIsEditingNote(true)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                    填写备注
+                  </Button>
+                )}
               </div>
-            ) : (
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setIsEditingReferral(true)}>
-                <Pencil className="h-3.5 w-3.5" />
-                填写内推码
-              </Button>
-            )}
+            </div>
           </CardContent>
         </Card>
 

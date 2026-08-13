@@ -30,6 +30,7 @@ export interface Job {
   category_id: string | null;
   user_id: string | null;
   referral_code: string | null;
+  group_note: string | null;
   published_at: string;
   scraped_at: string;
   created_at: string;

@@ -357,4 +357,25 @@ export function useUpdateReferralCode() {
   });
 }
 
+/**
+ * 填写/更新备注 — 组内所有成员均可操作（数据库触发器限定仅可修改此字段）
+ */
+export function useUpdateGroupNote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ jobId, groupNote }: { jobId: string; groupNote: string }) => {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ group_note: groupNote })
+        .eq('id', jobId);
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['job', variables.jobId] });
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+    },
+  });
+}
+
 

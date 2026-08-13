@@ -218,6 +218,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           description: string | null
+          group_note: string | null
           id: string
           is_shared: boolean
           location: string | null
@@ -236,6 +237,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           description?: string | null
+          group_note?: string | null
           id?: string
           is_shared?: boolean
           location?: string | null
@@ -254,6 +256,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           description?: string | null
+          group_note?: string | null
           id?: string
           is_shared?: boolean
           location?: string | null
