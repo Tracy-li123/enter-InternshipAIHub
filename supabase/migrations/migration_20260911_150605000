@@ -1,0 +1,1 @@
+DELETE FROM jobs WHERE source_url LIKE 'https://jobs.bytedance.com/%' AND user_id IS NULL AND is_shared = false;

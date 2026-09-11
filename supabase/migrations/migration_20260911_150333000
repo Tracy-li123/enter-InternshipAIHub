@@ -1,0 +1,1 @@
+DELETE FROM jobs WHERE source_url = 'https://jobs.bytedance.com/campus/position/7646687212493195525/detail?referral_code=EG7RXW7' AND user_id IS NULL AND is_shared = false;

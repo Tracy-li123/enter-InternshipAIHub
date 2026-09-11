@@ -72,8 +72,13 @@ export default function ImportPage() {
         setError(data.error || '导入失败');
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : '网络请求失败，请检查网络后重试';
-      setError(message);
+      const msg = err instanceof Error ? err.message : '';
+      // FunctionsFetchError: 请求未到达函数（网络超时/连接被中断）
+      if (msg.includes('Failed to send a request') || msg.includes('Failed to fetch')) {
+        setError('请求超时，可能该网站反爬较强或服务器响应较慢。请重试，或直接手动填写岗位信息。');
+      } else {
+        setError(msg || '网络请求失败，请检查网络后重试');
+      }
     } finally {
       setIsLoading(false);
     }

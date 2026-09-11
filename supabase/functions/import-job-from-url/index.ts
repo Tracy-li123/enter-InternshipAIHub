@@ -18,15 +18,96 @@ function getUserIdFromToken(req: Request): string | null {
   }
 }
 
-/** Try ByteDance's internal JSON API first — much more reliable than scraping. */
+/**
+ * Try ByteDance's internal JSON API first. As of late 2025 the public
+ * `jobs.bytedance.com/api/v1/ats/campus/position/{id}/details` endpoint
+ * returns an HTML shell (猎头平台) instead of JSON, and the site itself
+ * often times out for datacenter egress IPs. The reliable fast path is to
+ * ask Jina's renderer for just the <title> via X-Target-Selector, which
+ * returns the real role name (e.g. "AI策略产品实习生-抖音电商").
+ */
 async function fetchBytedanceJob(url: string): Promise<string | null> {
+  let title = "";
+
+  // 1) Fast path: Jina renderer + X-Target-Selector:title (~3-5s)
   try {
-    // Extract position ID from URL patterns like /position/{id}/detail
+    const jinaRes = await fetch("https://r.jina.ai/" + url, {
+      headers: {
+        "Accept": "application/json",
+        "X-Return-Format": "markdown",
+        "X-Timeout": "8",
+        "X-Target-Selector": "title",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (jinaRes.ok) {
+      const jinaData = await jinaRes.json();
+      const content = (jinaData.data && jinaData.data.content) ? jinaData.data.content : (jinaData.content || "");
+      title = content.replace(/-\s*加入字节跳动.*$/i, "").replace(/-\s*字节跳动.*$/i, "").replace(/[|\s]*字节跳动[|\s]*$/, "").trim();
+      if (title && !/校园招聘|招聘|加入字节跳动/i.test(title)) {
+        console.log("ByteDance title via Jina succeeded:", title);
+      } else {
+        title = "";
+      }
+    }
+  } catch (e: any) {
+    console.log("ByteDance Jina title attempt failed:", e.message);
+  }
+
+  // 1b) If we got the title, also try grabbing the full page via Jina so the
+  //     description/requirements fields aren't empty. Best-effort, bounded.
+  if (title) {
+    try {
+      const fullRes = await fetch("https://r.jina.ai/" + url, {
+        headers: {
+          "Accept": "application/json",
+          "X-Return-Format": "markdown",
+          "X-Timeout": "10",
+          "X-Remove-Selector": "header,footer,nav,.nav,.header,.footer,.breadcrumb,.sidebar",
+        },
+        signal: AbortSignal.timeout(12000),
+      });
+      if (fullRes.ok) {
+        const fullData = await fullRes.json();
+        const fullContent = (fullData.data && fullData.data.content) ? fullData.data.content : (fullData.content || "");
+        // Strip nav noise: drop markdown link-only lines ([text](url)), images,
+        // and leading site-shell boilerplate.
+        let clean = fullContent
+          .split("\n")
+          .filter((line: string) => {
+            const trimmed = line.trim();
+            // remove pure navigation link lines, images, empty heading links
+            if (/^!\[/.test(trimmed)) return false; // images
+            if (/^\[.*\]\(https?:\/\/[^)]*\)$/.test(trimmed)) return false; // nav links
+            if (/^(首页|职位|招聘动态|登录|技术人才项目|社会招聘|产品与技术|成长与回报)$/.test(trimmed)) return false;
+            return true;
+          })
+          .join("\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+
+        // Detect an offline/expired posting
+        if (/该职位已下线|职位已下线|已结束|已过期/.test(clean)) {
+          console.log("ByteDance posting appears offline:", title);
+          return JSON.stringify({ title, company: "字节跳动", location: "", description: "", requirements: "", category: "" });
+        }
+
+        if (clean.length > 300) {
+          console.log("ByteDance full page via Jina, length:", clean.length);
+          return JSON.stringify({ title, company: "字节跳动", location: "", description: clean.slice(0, 6000), requirements: "", category: "" });
+        }
+      }
+    } catch (e: any) {
+      console.log("ByteDance full page attempt failed:", e.message);
+    }
+    return JSON.stringify({ title, company: "字节跳动", location: "", description: "", requirements: "", category: "" });
+  }
+
+  // 2) Old JSON API — fails fast on non-JSON responses
+  try {
     const match = url.match(/\/position\/(\d+)/);
     if (!match) return null;
     const positionId = match[1];
-
-    // Try the campus API (international site)
     const apiUrl = `https://jobs.bytedance.com/api/v1/ats/campus/position/${positionId}/details`;
     const res = await fetch(apiUrl, {
       headers: {
@@ -34,29 +115,31 @@ async function fetchBytedanceJob(url: string): Promise<string | null> {
         "Accept": "application/json",
         "Referer": "https://jobs.bytedance.com/",
       },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(5000),
     });
-    if (!res.ok) return null;
-    const json = await res.json();
-
-    // Navigate the response structure
-    const data = json?.data || json;
-    const position = data?.position || data?.job || data;
-
-    if (!position?.name && !position?.title) return null;
-
-    const title = position.name || position.title || "";
-    const company = "字节跳动";
-    const location = (position.location_name_list || position.locations || []).join("、") || position.location || "";
-    const description = position.job_description || position.description || "";
-    const requirements = position.job_requirement || position.requirements || "";
-    const category = position.category_name || position.job_category || "";
-
-    return JSON.stringify({ title, company, location, description, requirements, category });
+    if (res.ok) {
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        const json = await res.json();
+        const data = json?.data || json;
+        const position = data?.position || data?.job || data;
+        if (position?.name || position?.title) {
+          const title = position.name || position.title || "";
+          const company = "字节跳动";
+          const location = (position.location_name_list || position.locations || []).join("、") || position.location || "";
+          const description = position.job_description || position.description || "";
+          const requirements = position.job_requirement || position.requirements || "";
+          const category = position.category_name || position.job_category || "";
+          console.log("ByteDance JSON API succeeded:", title);
+          return JSON.stringify({ title, company, location, description, requirements, category });
+        }
+      }
+    }
   } catch (e: any) {
     console.log("ByteDance API attempt failed:", e.message);
-    return null;
   }
+
+  return null;
 }
 
 interface FetchResult {
@@ -124,7 +207,7 @@ async function fetchPageContent(url: string): Promise<FetchResult> {
     console.log("direct fetch failed:", e.message);
   }
 
-  console.log("falling back to Jina...");
+    console.log("falling back to Jina...");
   try {
     // Hash-routed SPAs (e.g. https://campus.jd.com/#/details?id=8006) put the
     // real route after "#". Per URL spec, everything after "#" is a client-side
@@ -136,11 +219,11 @@ async function fetchPageContent(url: string): Promise<FetchResult> {
       headers: {
         "Accept": "application/json",
         "X-Return-Format": "markdown",
-        "X-Timeout": "20",
+        "X-Timeout": "12",
         // Remove common nav/footer noise to get the main content
         "X-Remove-Selector": "header,footer,nav,.nav,.header,.footer,.breadcrumb,.sidebar",
       },
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!jinaRes.ok) {
@@ -161,6 +244,27 @@ async function fetchPageContent(url: string): Promise<FetchResult> {
     const jinaData = await jinaRes.json();
     const content = (jinaData.data && jinaData.data.content) ? jinaData.data.content : (jinaData.content || "");
     if (content.length < 100) {
+      // Last resort: many SPA sites still expose a descriptive <title> (e.g.
+      // "产品经理实习生 - XX招聘"). Grab it so the AI can at least extract a title.
+      try {
+        const titleRes = await fetch("https://r.jina.ai/" + jinaTargetUrl, {
+          headers: {
+            "Accept": "application/json",
+            "X-Return-Format": "markdown",
+            "X-Timeout": "8",
+            "X-Target-Selector": "title",
+          },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (titleRes.ok) {
+          const titleData = await titleRes.json();
+          const titleContent = (titleData.data && titleData.data.content) ? titleData.data.content : (titleData.content || "");
+          if (titleContent && !/^(首页|登录|招聘|校园招聘|加入我们)$/.test(titleContent.trim())) {
+            console.log("Jina title fallback got:", titleContent);
+            return { content: "TITLE_ONLY:" + titleContent.trim() };
+          }
+        }
+      } catch { /* ignore */ }
       return { content: "", errorReason: "网页内容为空，可能需要登录或存在反爬保护" };
     }
     return { content };
@@ -176,6 +280,38 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // ── Overall budget: answer within ~22s so the browser never sees a
+    //    network-level timeout ("Failed to send a request to the Edge Function").
+    const result = await Promise.race([
+      handleImport(req),
+      new Promise<Response>((resolve) =>
+        setTimeout(
+          () =>
+            resolve(
+              new Response(
+                JSON.stringify({
+                  success: false,
+                  error: "处理超时，该网站响应较慢。请稍后重试，或直接手动填写岗位信息。",
+                  needManualInput: true,
+                }),
+                { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              )
+            ),
+          22000
+        )
+      ),
+    ]);
+    return result;
+  } catch (error: any) {
+    console.error("import failed:", error.message);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message || "导入失败" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
+
+async function handleImport(req: Request): Promise<Response> {
     const { url } = await req.json();
 
     if (!url) {
@@ -249,6 +385,27 @@ Deno.serve(async (req) => {
         );
       }
 
+      // TITLE_ONLY: content extraction failed but we got a usable <title>.
+      // Skip the expensive DeepSeek round-trip — derive a minimal job record.
+      if (fetchResult.content.startsWith("TITLE_ONLY:")) {
+        const titleOnly = fetchResult.content.replace("TITLE_ONLY:", "").trim();
+        // "产品经理实习生 - 腾讯招聘" → "产品经理实习生"
+        const cleanedTitle = titleOnly
+          .replace(/\s*[-–—|│·]\s*(腾讯|字节跳动|京东|百度|阿里|美团|招聘|校园招聘|加入我们).*$/i, "")
+          .replace(/\s*(招聘|校园招聘|热招)$/i, "")
+          .trim();
+        if (cleanedTitle && !/^(首页|登录|招聘|校园招聘|加入我们)$/.test(cleanedTitle)) {
+          console.log("Importing from title-only fallback:", cleanedTitle);
+          return await insertJobFromInfo({
+            supabase,
+            categories: categoriesResult.data || [],
+            userId,
+            url,
+            jobInfo: { title: cleanedTitle, company: "", location: "", description: "", requirements: "", category: "" },
+          });
+        }
+      }
+
       // Increase limit to 15000 to capture full job content on long pages
       const trimmedContent = fetchResult.content.slice(0, 15000);
 
@@ -291,6 +448,7 @@ ${trimmedContent}`,
           stream: false,
           max_tokens: 3000,
         }),
+        signal: AbortSignal.timeout(20000),
       });
 
       if (!aiResponse.ok) {
@@ -324,41 +482,65 @@ ${trimmedContent}`,
       );
     }
 
-    const categories = categoriesResult.data || [];
-    const categoryId = matchCategory(jobInfo.title, categories, userId);
+    return await insertJobFromInfo({
+      supabase,
+      categories: categoriesResult.data || [],
+      userId,
+      url,
+      jobInfo,
+    });
+}
 
-    const { data: newJob, error: insertError } = await supabase
-      .from("jobs")
-      .insert({
-        title: jobInfo.title.trim(),
-        company: jobInfo.company.trim(),
-        location: (jobInfo.location || "").trim() || "未知",
-        description: (jobInfo.description || "").trim(),
-        requirements: (jobInfo.requirements || "").trim(),
-        source_url: url,
-        category_id: categoryId,
-        user_id: userId,
-        published_at: new Date().toISOString(),
-        scraped_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+async function insertJobFromInfo(args: {
+  supabase: any;
+  categories: any[];
+  userId: string | null;
+  url: string;
+  jobInfo: any;
+}): Promise<Response> {
+  const { supabase, categories, userId, url, jobInfo } = args;
 
-    if (insertError) throw insertError;
-
-    return new Response(
-      JSON.stringify({ success: true, message: "导入成功: " + jobInfo.title, job: newJob }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-
-  } catch (error: any) {
-    console.error("import failed:", error.message);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message || "导入失败" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+  // Guess a company name from the URL when the extractor left it empty
+  let company = (jobInfo.company || "").trim();
+  if (!company) {
+    const hostMatch = url.match(/https?:\/\/(?:www\.)?([^/]+)/);
+    if (hostMatch) {
+      const host = hostMatch[1].replace(/^jobs\.|^careers\.|^campus\.|^talent\.|\.com$|\.cn$|\.global$|\.hr$/g, "");
+      const known: Record<string, string> = {
+        bytedance: "字节跳动", jd: "京东", baidu: "百度", tencent: "腾讯",
+        alibaba: "阿里巴巴", meituan: "美团", xiaohongshu: "小红书",
+      };
+      company = known[host] || host;
+    }
   }
-});
+  if (!company) company = "未知公司";
+
+  const categoryId = matchCategory(jobInfo.title, categories, userId);
+
+  const { data: newJob, error: insertError } = await supabase
+    .from("jobs")
+    .insert({
+      title: jobInfo.title.trim(),
+      company: company,
+      location: (jobInfo.location || "").trim() || "未知",
+      description: (jobInfo.description || "").trim(),
+      requirements: (jobInfo.requirements || "").trim(),
+      source_url: url,
+      category_id: categoryId,
+      user_id: userId,
+      published_at: new Date().toISOString(),
+      scraped_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  if (insertError) throw insertError;
+
+  return new Response(
+    JSON.stringify({ success: true, message: "导入成功: " + jobInfo.title, job: newJob }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
 
 function matchCategory(title: string, categories: any[], userId: string | null) {
   const lower = title.toLowerCase();
